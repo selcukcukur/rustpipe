@@ -1,6 +1,40 @@
+# Package configurations
 [package]
-name = "rustpipe"
-version = "0.1.0"
-edition = "2024"
+    # The name of the crate as it will appear on crates.io
+    name = "rustpipe"
+    # A concise description of the crate’s purpose (shown on crates.io and docs.rs)
+    description = ""
+    # Keywords to improve discoverability on crates.io
+    keywords = ["pipeline", "pipe", "rust", "rustpipe"]
+    # Author information (name and email)
+    authors = ["Selçuk Çukur <hello@selcukcukur.me>"]
+    # License identifier (SPDX format, e.g. MIT, Apache-2.0)
+    license = "MIT"
+    # Current crate version (Semantic Versioning compliant)
+    version = "0.1.0"
 
+    # Rust edition (modern syntax and features)
+    edition = "2024"
+    # Crates.io category (used for classification and discoverability)
+    categories = ["development-tools", "development-tools::debugging", "development-tools::profiling"]
+    # Documentation URL (published API reference on docs.rs)
+    documentation = "https://docs.rs/rustpipe"
+    # Repository URL (source code and issue tracker)
+    repository = "https://github.com/selcukcukur/rustpipe"
+    # Path to the readme file (displayed on crates.io)
+    readme = "readme.md"
+
+# Dependency configurations
 [dependencies]
+    # Serde is the core serialization/deserialization framework
+    serde = { version = "1", features = ["derive"] }
+    # Serde JSON is the JSON backend for Serde (used for structured log output)
+    serde_json = "1"
+
+# Library configuration
+[lib]
+    # The library name (as exposed to other crates)
+    name = "rustpipe"
+
+    # Path to the library entry point (main source file)
+    path = "src/lib.rs"
