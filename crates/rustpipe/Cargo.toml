@@ -16,7 +16,7 @@
     # Rust edition (modern syntax and features)
     edition = "2024"
     # Crates.io category (used for classification and discoverability)
-    categories = ["rust-patterns", "data-structures", "asynchronous", "error-handling", "value-formatting"]
+    categories = ["rust-patterns", "data-structures", "asynchronous", "value-formatting"]
     # Documentation URL (published API reference on docs.rs)
     documentation = "https://docs.rs/rustpipe"
     # Repository URL (source code and issue tracker)
