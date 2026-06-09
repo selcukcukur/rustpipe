@@ -23,6 +23,16 @@ impl<T, E> Pipeline<T, E> {
         self
     }
 
+    pub fn tap<F>(mut self, f: F) -> Self
+    where
+        F: Fn(&T) + 'static,
+    {
+        if let Some(ref input) = self.input {
+            f(input);
+        }
+        self
+    }
+    
     pub fn through(mut self, steps: Vec<Box<dyn Pipe<T, E>>>) -> Self {
         for step in steps {
             self.steps.push(step);
