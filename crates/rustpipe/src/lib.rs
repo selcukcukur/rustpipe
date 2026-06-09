@@ -236,6 +236,55 @@ impl<T, E> Pipeline<T, E> {
         self
     }
 
+    /// Intercepts errors and allows recovery via a closure.
+    ///
+    /// # Behavior
+    /// - Consumes the pipeline instance.
+    /// - Executes all steps sequentially.
+    /// - If any step returns `Err(E)`, the provided closure `f` is invoked
+    ///   with the error, allowing recovery or transformation.
+    ///
+    /// # Parameters
+    /// - `f`: A closure that takes the error `E` and returns a fallback `T`.
+    ///
+    /// # Return
+    /// - `Ok(T)` if all steps succeed.
+    /// - `Ok(T)` with fallback if a step fails and `f` recovers.
+    ///
+    /// # Example
+    /// ```
+    /// use rustpipe::{Pipeline, Pipe};
+    ///
+    /// struct FailStep;
+    /// impl Pipe<String, String> for FailStep {
+    ///     fn handle(&self, _input: String) -> Result<String, String> {
+    ///         Err("failure".to_string())
+    ///     }
+    /// }
+    ///
+    /// fn main() {
+    ///     let result = Pipeline::new()
+    ///         .send("hello".to_string())
+    ///         .through(vec![Box::new(FailStep)])
+    ///         .rescue(|err| format!("Recovered from: {}", err));
+    ///
+    ///     assert_eq!(result.unwrap(), "Recovered from: failure");
+    /// }
+    /// ```
+    pub fn rescue<F>(self, f: F) -> Result<T, E>
+    where
+        F: FnOnce(E) -> T,
+    {
+        let mut input = self.input.expect("Pipeline input not set");
+        for step in &self.steps {
+            match step.handle(input) {
+                Ok(val) => input = val,
+                Err(err) => return Ok(f(err)),
+            }
+        }
+        Ok(input)
+    }
+
     /// Observes the current pipeline input without modifying it.
     ///
     /// # Behavior
