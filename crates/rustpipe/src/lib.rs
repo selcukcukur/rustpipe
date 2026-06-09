@@ -104,7 +104,7 @@ pub trait Pipe<T, E> {
 pub struct Pipeline<T, E> {
     input: Option<T>,
     steps: Vec<Box<dyn Pipe<T, E>>>,
-    method: String,
+    taps: Vec<Box<dyn Fn(&T)>>
 }
 
 impl<T, E> Pipeline<T, E> {
@@ -145,7 +145,7 @@ impl<T, E> Pipeline<T, E> {
         Self {
             input: None,
             steps: Vec::new(),
-            method: "handle".to_string(),
+            taps: Vec::new(),
         }
     }
 
@@ -191,48 +191,6 @@ impl<T, E> Pipeline<T, E> {
     /// ```
     pub fn send(mut self, input: T) -> Self {
         self.input = Some(input);
-        self
-    }
-
-    /// Sets the method name to be used when invoking pipeline steps.
-    ///
-    /// # Behavior
-    /// - Consumes the pipeline instance.
-    /// - Stores the provided method name as a string in the pipeline state.
-    /// - Intended for customizing how steps are dispatched, allowing flexibility
-    ///   if different step types expose multiple handler methods.
-    /// - By default, steps are expected to implement [`Pipe`] with a `handle` method.
-    ///   Using `via` makes it possible to switch to another method name if supported.
-    ///
-    /// # Parameters
-    /// - `method`: The name of the method to call on each step (e.g., `"handle"`, `"process"`).
-    ///
-    /// # Return
-    /// - Returns the pipeline instance with the updated method setting, enabling further chaining.
-    ///
-    /// # Example
-    /// ```
-    /// use rustpipe::{Pipeline, Pipe};
-    ///
-    /// struct TrimStep;
-    /// impl Pipe<String, String> for TrimStep {
-    ///     fn handle(&self, input: String) -> Result<String, String> {
-    ///         Ok(input.trim().to_string())
-    ///     }
-    /// }
-    ///
-    /// fn main() {
-    ///     let result = Pipeline::new()
-    ///         .send("   hello rustpipe   ".to_string())
-    ///         .through(vec![Box::new(TrimStep)])
-    ///         .via("handle") // specify which method to call
-    ///         .then_return();
-    ///
-    ///     assert_eq!(result.unwrap(), "hello rustpipe");
-    /// }
-    /// ```
-    pub fn via(mut self, method: &str) -> Self {
-        self.method = method.to_string();
         self
     }
 
@@ -324,13 +282,11 @@ impl<T, E> Pipeline<T, E> {
     ///     assert_eq!(result.unwrap(), "hello rustpipe");
     /// }
     /// ```
-    pub fn tap<F>(self, f: F) -> Self
+    pub fn tap<F>(mut self, f: F) -> Self
     where
         F: Fn(&T) + 'static,
     {
-        if let Some(ref input) = self.input {
-            f(input);
-        }
+        self.taps.push(Box::new(f));
         self
     }
 
@@ -484,9 +440,13 @@ impl<T, E> Pipeline<T, E> {
         let mut input = self.input.expect("Pipeline input not set");
         for step in &self.steps {
             input = step.handle(input)?;
+            for tap in &self.taps {
+                tap(&input);
+            }
         }
         Ok(input)
     }
+
 
     /// Adds a step that runs only if condition is true.
     pub fn when<F>(mut self, condition: bool, step: Box<dyn Pipe<T, E>>) -> Self {

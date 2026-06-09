@@ -21,7 +21,6 @@ fn main() {
             Box::new(TrimStep),
             Box::new(UpperStep),
         ])
-        .via("handle")
         .tap(|val| println!("Pipeline state: {}", val))
         .then(|val| format!("Final result: {}", val));
 
