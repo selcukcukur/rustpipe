@@ -21,10 +21,12 @@ fn main() {
             Box::new(TrimStep),
             Box::new(UpperStep),
         ])
-        .then_return();
+        .via("handle")
+        .tap(|val| println!("Pipeline state: {}", val))
+        .then(|val| format!("Final result: {}", val));
 
     match result {
-        Ok(out) => println!("{}", out), // "HELLO RUSTPIPE"
+        Ok(out) => println!("{}", out),
         Err(e) => eprintln!("Pipeline error: {}", e),
     }
 }

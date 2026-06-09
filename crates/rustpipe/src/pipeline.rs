@@ -23,7 +23,7 @@ impl<T, E> Pipeline<T, E> {
         self
     }
 
-    pub fn tap<F>(mut self, f: F) -> Self
+    pub fn tap<F>(self, f: F) -> Self
     where
         F: Fn(&T) + 'static,
     {
