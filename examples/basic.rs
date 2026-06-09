@@ -1,4 +1,4 @@
-use rustpipe::pipeline::{Pipeline, Pipe};
+use rustpipe::{Pipeline, Pipe};
 
 struct TrimStep;
 impl Pipe<String, String> for TrimStep {
@@ -15,12 +15,13 @@ impl Pipe<String, String> for UpperStep {
 }
 
 fn main() {
-    let pipeline = Pipeline::new()
-        .add(TrimStep)
-        .add(UpperStep);
+    let result = Pipeline::new()
+        .send("   hello rustpipe   ".to_string())
+        .through(vec![TrimStep, UpperStep])
+        .then_return();
 
-    match pipeline.execute("   hello rustpipe   ".to_string()) {
-        Ok(result) => println!("{}", result),
+    match result {
+        Ok(out) => println!("{}", out), // "HELLO RUSTPIPE"
         Err(e) => eprintln!("Pipeline error: {}", e),
     }
 }
