@@ -1,4 +1,4 @@
-use rustpipe::async_pipeline::{AsyncPipeline, AsyncPipe};
+use rustpipe::{AsyncPipeline, AsyncPipe};
 use std::future::Future;
 use std::pin::Pin;
 

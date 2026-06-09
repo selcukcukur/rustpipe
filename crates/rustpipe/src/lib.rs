@@ -6,4 +6,4 @@ pub mod pipeline;
 pub use pipeline::*;
 
 #[cfg(feature = "async")]
-pub use async_pipeline::AsyncPipeline;
+pub use async_pipeline::*;
