@@ -110,40 +110,8 @@ pub struct Pipeline<T, E> {
     taps: Vec<Box<dyn Fn(&T)>>
 }
 
-impl<T, E: std::fmt::Debug> Pipeline<T, E> {
+impl<T, E: std::fmt::Debug> Pipeline<T, E> where PipelineError: From<E> {
     /// Creates a new, empty pipeline instance.
-    ///
-    /// # Behavior
-    /// - Initializes the pipeline with no input (`input = None`).
-    /// - Starts with an empty list of steps (`steps = Vec::new()`).
-    /// - Sets the default method name to `"handle"`.
-    /// - This method is typically the first call when constructing a pipeline,
-    ///   followed by [`Pipeline::send`] to provide input and [`Pipeline::through`]
-    ///   to add steps.
-    ///
-    /// # Return
-    /// - Returns a fresh [`Pipeline`] instance ready for configuration.
-    ///
-    /// # Example
-    /// ```
-    /// use rustpipe::{Pipeline, Pipe};
-    ///
-    /// struct TrimStep;
-    /// impl Pipe<String, String> for TrimStep {
-    ///     fn handle(&self, input: String) -> Result<String, String> {
-    ///         Ok(input.trim().to_string())
-    ///     }
-    /// }
-    ///
-    /// fn main() {
-    ///     let pipeline = Pipeline::new()
-    ///         .send("   hello rustpipe   ".to_string())
-    ///         .through(vec![Box::new(TrimStep)]);
-    ///
-    ///     let result = pipeline.then_return();
-    ///     assert_eq!(result.unwrap(), "hello rustpipe");
-    /// }
-    /// ```
     pub fn new() -> Self {
         Self {
             input: None,
@@ -153,85 +121,12 @@ impl<T, E: std::fmt::Debug> Pipeline<T, E> {
     }
 
     /// Provides the initial input value to the pipeline.
-    ///
-    /// # Behavior
-    /// - Consumes the pipeline instance.
-    /// - Stores the given input inside the pipeline state.
-    /// - This input will later be passed sequentially through all steps
-    ///   added via [`Pipeline::through`].
-    /// - Must be called before [`Pipeline::then_return`] or [`Pipeline::then`],
-    ///   otherwise those methods will panic due to missing input.
-    ///
-    /// # Parameters
-    /// - `input`: The initial value of type `T` to be processed by the pipeline.
-    ///
-    /// # Return
-    /// - Returns the pipeline instance with the input set, enabling further chaining.
-    ///
-    /// # Panics
-    /// - Does not panic. However, if this method is not called before finalizing
-    ///   the pipeline, subsequent methods will panic when attempting to access input.
-    ///
-    /// # Example
-    /// ```
-    /// use rustpipe::{Pipeline, Pipe};
-    ///
-    /// struct TrimStep;
-    /// impl Pipe<String, String> for TrimStep {
-    ///     fn handle(&self, input: String) -> Result<String, String> {
-    ///         Ok(input.trim().to_string())
-    ///     }
-    /// }
-    ///
-    /// fn main() {
-    ///     let result = Pipeline::new()
-    ///         .send("   hello rustpipe   ".to_string()) // provide input
-    ///         .through(vec![Box::new(TrimStep)])
-    ///         .then_return();
-    ///
-    ///     assert_eq!(result.unwrap(), "hello rustpipe");
-    /// }
-    /// ```
     pub fn send(mut self, input: T) -> Self {
         self.input = Some(input);
         self
     }
 
     /// Intercepts errors and allows recovery via a closure.
-    ///
-    /// # Behavior
-    /// - Consumes the pipeline instance.
-    /// - Executes all steps sequentially.
-    /// - If any step returns `Err(E)`, the provided closure `f` is invoked
-    ///   with the error, allowing recovery or transformation.
-    ///
-    /// # Parameters
-    /// - `f`: A closure that takes the error `E` and returns a fallback `T`.
-    ///
-    /// # Return
-    /// - `Ok(T)` if all steps succeed.
-    /// - `Ok(T)` with fallback if a step fails and `f` recovers.
-    ///
-    /// # Example
-    /// ```
-    /// use rustpipe::{Pipeline, Pipe};
-    ///
-    /// struct FailStep;
-    /// impl Pipe<String, String> for FailStep {
-    ///     fn handle(&self, _input: String) -> Result<String, String> {
-    ///         Err("failure".to_string())
-    ///     }
-    /// }
-    ///
-    /// fn main() {
-    ///     let result = Pipeline::new()
-    ///         .send("hello".to_string())
-    ///         .through(vec![Box::new(FailStep)])
-    ///         .rescue(|err| format!("Recovered from: {}", err));
-    ///
-    ///     assert_eq!(result.unwrap(), "Recovered from: failure");
-    /// }
-    /// ```
     pub fn rescue<F>(self, f: F) -> PipelineResult<T>
     where
         F: FnOnce(PipelineError) -> T,
@@ -240,51 +135,13 @@ impl<T, E: std::fmt::Debug> Pipeline<T, E> {
         for step in &self.steps {
             match step.handle(input) {
                 Ok(val) => input = val,
-                Err(err) => return Ok(f(PipelineError::StepFailure(format!("{:?}", err)))),
+                Err(err) => return Ok(f(err.into()))
             }
         }
         Ok(input)
     }
 
     /// Observes the current pipeline input without modifying it.
-    ///
-    /// # Behavior
-    /// - Consumes the pipeline instance.
-    /// - If an input has been provided via [`Pipeline::send`], the closure `f` is invoked
-    ///   with a reference to that input.
-    /// - The closure can be used for logging, debugging, or side effects.
-    /// - The pipeline state remains unchanged; the input is not modified.
-    ///
-    /// # Parameters
-    /// - `f`: A closure that takes a reference to the current input value (`&T`).
-    ///
-    /// # Return
-    /// - Returns the pipeline instance unchanged, allowing further chaining.
-    ///
-    /// # Panics
-    /// - Does not panic. If no input is set, the closure is simply not invoked.
-    ///
-    /// # Example
-    /// ```
-    /// use rustpipe::{Pipeline, Pipe};
-    ///
-    /// struct TrimStep;
-    /// impl Pipe<String, String> for TrimStep {
-    ///     fn handle(&self, input: String) -> Result<String, String> {
-    ///         Ok(input.trim().to_string())
-    ///     }
-    /// }
-    ///
-    /// fn main() {
-    ///     let result = Pipeline::new()
-    ///         .send("   hello rustpipe   ".to_string())
-    ///         .through(vec![Box::new(TrimStep)])
-    ///         .tap(|val| println!("Before processing: {}", val))
-    ///         .then_return();
-    ///
-    ///     assert_eq!(result.unwrap(), "hello rustpipe");
-    /// }
-    /// ```
     pub fn tap<F>(mut self, f: F) -> Self
     where
         F: Fn(&T) + 'static,
@@ -294,46 +151,6 @@ impl<T, E: std::fmt::Debug> Pipeline<T, E> {
     }
 
     /// Adds a sequence of steps to the pipeline.
-    ///
-    /// # Behavior
-    /// - Consumes the provided vector of steps.
-    /// - Each step must implement the [`Pipe`] trait and be wrapped in a `Box<dyn Pipe<T, E>>`.
-    /// - Steps are appended to the pipeline in the order they appear in the vector.
-    /// - The pipeline can then execute these steps sequentially when [`Pipeline::then_return`] or [`Pipeline::then`] is called.
-    ///
-    /// # Parameters
-    /// - `steps`: A vector of boxed step instances implementing [`Pipe<T, E>`].
-    ///
-    /// # Return
-    /// - Returns the updated pipeline instance with the new steps included.
-    ///
-    /// # Example
-    /// ```
-    /// use rustpipe::{Pipeline, Pipe};
-    ///
-    /// struct TrimStep;
-    /// impl Pipe<String, String> for TrimStep {
-    ///     fn handle(&self, input: String) -> Result<String, String> {
-    ///         Ok(input.trim().to_string())
-    ///     }
-    /// }
-    ///
-    /// struct UpperStep;
-    /// impl Pipe<String, String> for UpperStep {
-    ///     fn handle(&self, input: String) -> Result<String, String> {
-    ///         Ok(input.to_uppercase())
-    ///     }
-    /// }
-    ///
-    /// fn main() {
-    ///     let result = Pipeline::new()
-    ///         .send("   hello rustpipe   ".to_string())
-    ///         .through(vec![Box::new(TrimStep), Box::new(UpperStep)])
-    ///         .then_return();
-    ///
-    ///     assert_eq!(result.unwrap(), "HELLO RUSTPIPE");
-    /// }
-    /// ```
     pub fn through(mut self, steps: Vec<Box<dyn Pipe<T, E>>>) -> Self {
         for step in steps {
             self.steps.push(step);
@@ -342,111 +159,22 @@ impl<T, E: std::fmt::Debug> Pipeline<T, E> {
     }
 
     /// Executes the pipeline and applies a final transformation closure to the result.
-    ///
-    /// # Behavior
-    /// - Consumes the pipeline instance.
-    /// - Takes the input previously provided with [`Pipeline::send`].
-    /// - Sequentially applies each step added with [`Pipeline::through`].
-    /// - Each step must implement the [`Pipe`] trait and return a `Result<T, E>`.
-    /// - After all steps succeed, the final value is passed into the provided closure `f`.
-    ///
-    /// # Return
-    /// - `Ok(R)` if all steps succeed and the closure produces a result.
-    /// - `Err(E)` if any step fails; execution stops immediately at the failing step.
-    ///
-    /// # Panics
-    /// - If no input was provided before calling this method, it will panic with
-    ///   `"Pipeline input not set"`.
-    ///
-    /// # Example
-    /// ```
-    /// use rustpipe::{Pipeline, Pipe};
-    ///
-    /// struct TrimStep;
-    /// impl Pipe<String, String> for TrimStep {
-    ///     fn handle(&self, input: String) -> Result<String, String> {
-    ///         Ok(input.trim().to_string())
-    ///     }
-    /// }
-    ///
-    /// struct UpperStep;
-    /// impl Pipe<String, String> for UpperStep {
-    ///     fn handle(&self, input: String) -> Result<String, String> {
-    ///         Ok(input.to_uppercase())
-    ///     }
-    /// }
-    ///
-    /// fn main() {
-    ///     let result = Pipeline::new()
-    ///         .send("   hello rustpipe   ".to_string())
-    ///         .through(vec![Box::new(TrimStep), Box::new(UpperStep)])
-    ///         .then(|val| format!("Final result: {}", val));
-    ///
-    ///     assert_eq!(result.unwrap(), "Final result: HELLO RUSTPIPE");
-    /// }
-    /// ```
     pub fn then<F, R>(self, f: F) -> PipelineResult<R>
     where
         F: FnOnce(T) -> R,
     {
         let mut input = self.input.ok_or(PipelineError::InputMissing)?;
         for step in &self.steps {
-            input = step
-                .handle(input)
-                .map_err(|e| PipelineError::StepFailure(format!("{:?}", e)))?;
+            input = step.handle(input)?;
         }
         Ok(f(input))
     }
 
     /// Finalizes the pipeline and returns the processed output.
-    ///
-    /// # Behavior
-    /// - Consumes the pipeline instance.
-    /// - Takes the input previously provided with [`Pipeline::send`].
-    /// - Sequentially applies each step added with [`Pipeline::through`].
-    /// - Each step must implement the [`Pipe`] trait and return a `Result<T, E>`.
-    ///
-    /// # Return
-    /// - `Ok(T)` if all steps succeed and produce a final value.
-    /// - `Err(E)` if any step fails; execution stops immediately at the failing step.
-    ///
-    /// # Panics
-    /// - If no input was provided before calling this method, it will panic with
-    ///   `"Pipeline input not set"`.
-    ///
-    /// # Example
-    /// ```
-    /// use rustpipe::{Pipeline, Pipe};
-    ///
-    /// struct TrimStep;
-    /// impl Pipe<String, String> for TrimStep {
-    ///     fn handle(&self, input: String) -> Result<String, String> {
-    ///         Ok(input.trim().to_string())
-    ///     }
-    /// }
-    ///
-    /// struct UpperStep;
-    /// impl Pipe<String, String> for UpperStep {
-    ///     fn handle(&self, input: String) -> Result<String, String> {
-    ///         Ok(input.to_uppercase())
-    ///     }
-    /// }
-    ///
-    /// fn main() {
-    ///     let result = Pipeline::new()
-    ///         .send("   hello rustpipe   ".to_string())
-    ///         .through(vec![Box::new(TrimStep), Box::new(UpperStep)])
-    ///         .then_return();
-    ///
-    ///     assert_eq!(result.unwrap(), "HELLO RUSTPIPE");
-    /// }
-    /// ```
     pub fn then_return(self) -> PipelineResult<T> {
         let mut input = self.input.ok_or(PipelineError::InputMissing)?;
         for step in &self.steps {
-            input = step
-                .handle(input)
-                .map_err(|e| PipelineError::StepFailure(format!("{:?}", e)))?;
+            input = step.handle(input)?;
             for tap in &self.taps {
                 tap(&input);
             }
