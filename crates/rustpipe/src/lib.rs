@@ -138,19 +138,35 @@ impl<TPassable, TError: std::fmt::Debug> Pipeline<TPassable, TError> where Pipel
         }
     }
 
+    /// Runs a finalizer closure regardless of success or failure.
+    pub fn finally<TFinalizer>(mut self, f: TFinalizer) -> Self
+    where
+        TFinalizer: FnOnce(Result<&TPassable, &PipelineError>) + 'static,
+    {
+        // Wrap pipeline execution with finalizer
+        let result = if let Some(passable) = &self.passable {
+            Ok(passable)
+        } else {
+            Err(&PipelineError::InputMissing)
+        };
+
+        f(result);
+        self
+    }
+
     /// Intercepts errors and allows recovery via a closure.
     ///
-    /// Parameters:
-    /// - `f`: A closure (`TFallback`) that takes a [`PipelineError`] and produces a fallback `TPassable`.
+    /// **Parameters**
+    /// - `recovery`- A closure (`TFallback`) that takes a [`PipelineError`] and produces a fallback `TPassable`.
     ///
-    /// Generics:
-    /// - `TPassable`: The type of the passable value that flows through the pipeline.
-    /// - `TError`: The error type returned when a pipe fails.
-    /// - `TFallback`: A closure type that maps a [`PipelineError`] into a fallback `TPassable`.
+    /// **Generics**
+    /// - `TPassable` - The type of the passable value that flows through the pipeline.
+    /// - `TError` - The error type returned when a pipe fails.
+    /// - `TFallback` - A closure type that maps a [`PipelineError`] into a fallback `TPassable`.
     ///
     /// **Returns**
-    /// - `Ok(TPassable)`: Either the fully processed pipeline value or the recovered value from `f`.
-    /// - `Err(PipelineError)`: Only if the initial passable value is missing.
+    /// - `Ok(TPassable)` - Either the fully processed pipeline value or the recovered value from `f`.
+    /// - `Err(PipelineError)` - Only if the initial passable value is missing.
     ///
     /// Usage:
     /// ```rust
@@ -200,7 +216,7 @@ impl<TPassable, TError: std::fmt::Debug> Pipeline<TPassable, TError> where Pipel
     ///     );
     /// }
     /// ```
-    pub fn rescue<TFallback>(self, f: TFallback) -> PipelineResult<TPassable>
+    pub fn rescue<TFallback>(self, recovery: TFallback) -> PipelineResult<TPassable>
     where
         TFallback: FnOnce(PipelineError) -> TPassable,
     {
@@ -215,7 +231,7 @@ impl<TPassable, TError: std::fmt::Debug> Pipeline<TPassable, TError> where Pipel
 
                 // invoke recovery closure
                 Err(err) => {
-                    let recovered = f(utility::step_failure_from::<TError, TPassable>(err).into());
+                    let recovered = recovery(utility::step_failure_from::<TError, TPassable>(err).into());
                     return Ok(recovered);
                 }
             }
