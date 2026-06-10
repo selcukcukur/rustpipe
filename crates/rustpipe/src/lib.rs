@@ -1,15 +1,63 @@
 pub mod error;
-mod utility;
+pub mod utility;
+pub mod types;
 
-use std::any::type_name;
 #[cfg(feature = "async")]
 use std::future::Future;
 #[cfg(feature = "async")]
 use std::pin::Pin;
-use crate::error::{PipelineError, PipelineResult, StepFailure};
+use crate::error::{PipelineError};
+use crate::types::PipelineResult;
 
-pub trait Pipe<T, E> {
-    fn handle(&self, passable: T) -> Result<T, E>;
+/// A single processing unit within a [`Pipeline`].
+///
+/// **Generics**
+/// - `TPassable` - The type of the value that flows through the pipeline.
+/// - `TError` - The error type returned when a pipe fails.
+///
+/// **Returns**
+/// - `Ok(TPassable)` with the modified value.
+/// - `Err(TError)` to signal a failure.
+pub trait Pipe<TPassable, TError> {
+    /// Process the given `passable` value within this pipe.
+    ///
+    /// **Parameters**
+    /// - `passable` - The current value flowing through the pipeline.
+    ///
+    /// **Generics**
+    /// - `TPassable` - The type of the value that flows through the pipeline.
+    /// - `TError` - The error type returned when a pipe fails.
+    ///
+    /// **Returns**
+    /// - `Ok(TPassable)`: The transformed or validated value to continue through the pipeline.
+    /// - `Err(TError)`: An error indicating that this pipe failed and the pipeline should stop execution.
+    fn handle(&self, passable: TPassable) -> Result<TPassable, TError>;
+}
+
+/// A single asynchronous processing unit within a [`AsyncPipeline`].
+///
+/// **Generics**
+/// - `TPassable` - The type of the value that flows through the pipeline.
+/// - `TError` - The error type returned when a pipe fails.
+///
+/// **Returns**
+/// - `Ok(TPassable)` with the modified value.
+/// - `Err(TError)` to signal a failure.
+#[cfg(feature = "async")]
+pub trait AsyncPipe<TPassable, TError> {
+    /// Asynchronously process the given `passable` value within this pipe.
+    ///
+    /// **Parameters**
+    /// - `passable` - The current value flowing through the pipeline.
+    ///
+    /// **Generics**
+    /// - `TPassable` - The type of the value that flows through the pipeline.
+    /// - `TError` - The error type returned when a pipe fails.
+    ///
+    /// **Returns**
+    /// - `Ok(TPassable)` -The transformed or validated value to continue through the pipeline.
+    /// - `Err(TError)` - An error indicating that this pipe failed and the pipeline should stop execution.
+    fn handle<'a>(&'a self, passable: TPassable) -> Pin<Box<dyn Future<Output = Result<TPassable, TError>> + 'a>>;
 }
 
 /// A configurable pipeline for sequential data processing.
@@ -32,8 +80,16 @@ pub struct Pipeline<TPassable, TError> {
     /// after each successful pipe execution. These taps allow
     /// side effects such as logging, metrics, or debugging
     /// without modifying the pipeline value itself.
+    #[cfg(feature = "taps")]
     taps: Vec<Box<dyn Fn(&TPassable)>>,
 }
+
+
+
+
+
+
+
 
 impl<TPassable, TError: std::fmt::Debug> Pipeline<TPassable, TError> where PipelineError: From<TError> {
     /// Creates a new, empty pipeline instance.
@@ -73,7 +129,18 @@ impl<TPassable, TError: std::fmt::Debug> Pipeline<TPassable, TError> where Pipel
     where
         F: Fn(&TPassable) + 'static,
     {
-        self.taps.push(Box::new(f));
+        #[cfg(feature = "taps")]
+        {
+            self.taps.push(Box::new(f));
+        }
+
+        #[cfg(not(feature = "taps"))]
+        {
+            if let Some(ref passable) = self.passable {
+                f(passable);
+            }
+        }
+
         self
     }
 
@@ -109,7 +176,11 @@ impl<TPassable, TError: std::fmt::Debug> Pipeline<TPassable, TError> where Pipel
             match step.handle(passable) {
                 Ok(val) => {
                     passable = val;
-                    utility::run_taps(&self.taps, &passable);
+
+                    #[cfg(feature = "taps")]
+                    {
+                        utility::run_taps(&self.taps, &passable);
+                    }
                 }
                 Err(err) => {
                     return Err(utility::step_failure_from::<TError, TPassable>(err).into());
@@ -134,11 +205,6 @@ impl<TPassable, TError: std::fmt::Debug> Pipeline<TPassable, TError> where Pipel
         }
         self
     }
-}
-
-#[cfg(feature = "async")]
-pub trait AsyncPipe<T, E> {
-    fn handle<'a>(&'a self, passable: T) -> Pin<Box<dyn Future<Output = Result<T, E>> + 'a>>;
 }
 
 #[cfg(feature = "async")]
