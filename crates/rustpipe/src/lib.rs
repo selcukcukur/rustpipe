@@ -128,25 +128,26 @@ impl<TPassable, TError: std::fmt::Debug> Pipeline<TPassable, TError> where Pipel
         Ok(passable)
     }
 
-    /// Observes the current pipeline passable without modifying it.
+    #[cfg(feature = "taps")]
     pub fn tap<F>(mut self, f: F) -> Self
     where
         F: Fn(&TPassable) + 'static,
     {
-        #[cfg(feature = "taps")]
-        {
-            self.taps.push(Box::new(f));
-        }
-
-        #[cfg(not(feature = "taps"))]
-        {
-            if let Some(ref passable) = self.passable {
-                f(passable);
-            }
-        }
-
+        self.taps.push(Box::new(f));
         self
     }
+
+    #[cfg(not(feature = "taps"))]
+    pub fn tap<F>(self, f: F) -> Self
+    where
+        F: Fn(&TPassable) + 'static,
+    {
+        if let Some(ref passable) = self.passable {
+            f(passable);
+        }
+        self
+    }
+
 
     /// Adds a sequence of pipes to the pipeline.
     pub fn through(mut self, pipes: Vec<Box<dyn Pipe<TPassable, TError>>>) -> Self {
