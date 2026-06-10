@@ -6,8 +6,12 @@ pub mod types;
 use std::future::Future;
 #[cfg(feature = "async")]
 use std::pin::Pin;
+
 pub use crate::errors::*;
 pub use crate::types::*;
+
+#[cfg(feature = "macros")]
+pub use rustpipe_macros::*;
 
 /// A single processing unit within a [`Pipeline`].
 ///
@@ -102,15 +106,8 @@ impl<TPassable, TError: std::fmt::Debug> Pipeline<TPassable, TError> where Pipel
     /// use rustpipe::{Pipeline, Pipe, PipelineResult, PipelineError};
     ///
     /// // Define a simple pipe that adds a debug prefix
+    /// #[derive(Pipe)]
     /// struct DebugPipe;
-    ///
-    /// // Implement Pipe trait for debug pipe
-    /// impl Pipe<String, PipelineError> for DebugPipe {
-    ///     // Transform passable value by prefixing "[DEBUG]"
-    ///     fn handle(&self, passable: String) -> Result<String, PipelineError> {
-    ///         Ok(format!("[DEBUG] {}", passable))
-    ///     }
-    /// }
     ///
     /// fn main() {
     ///     // Create a new pipeline instance

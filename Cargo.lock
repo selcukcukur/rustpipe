@@ -480,6 +480,7 @@ name = "rustpipe"
 version = "1.0.0"
 dependencies = [
  "criterion",
+ "rustpipe-macros",
  "serde",
  "serde_json",
  "thiserror",
