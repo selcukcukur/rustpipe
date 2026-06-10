@@ -11,7 +11,7 @@ pub use crate::errors::*;
 pub use crate::types::*;
 
 #[cfg(feature = "macros")]
-pub use rustpipe_macros::*;
+pub use rustpipe_macros::pipe;
 
 /// A single processing unit within a [`Pipeline`].
 ///
@@ -103,11 +103,19 @@ impl<TPassable, TError: std::fmt::Debug> Pipeline<TPassable, TError> where Pipel
     /// ```rust
     /// // Import pipeline types and traits
     /// use std::sync::Arc;
-    /// use rustpipe::{Pipeline, Pipe, PipelineResult, PipelineError};
+    /// use rustpipe::{Pipeline, Pipe, PipelineResult, PipelineError, pipe};
     ///
     /// // Define a simple pipe that adds a debug prefix
-    /// #[derive(Pipe)]
+    /// #[pipe(String, PipelineError)]
     /// struct DebugPipe;
+    ///
+    /// // Implement Pipe trait for debug pipe
+    /// impl DebugPipe {
+    ///     // Transform passable value by prefixing "[DEBUG]"
+    ///     fn handle(&self, passable: String) -> Result<String, PipelineError> {
+    ///         Ok(format!("[DEBUG] {}", passable))
+    ///     }
+    /// }
     ///
     /// fn main() {
     ///     // Create a new pipeline instance
@@ -136,7 +144,7 @@ impl<TPassable, TError: std::fmt::Debug> Pipeline<TPassable, TError> where Pipel
     }
 
     /// Runs a finalizer closure regardless of success or failure.
-    pub fn finally<TFinalizer>(mut self, f: TFinalizer) -> Self
+    pub fn finally<TFinalizer>(self, f: TFinalizer) -> Self
     where
         TFinalizer: FnOnce(Result<&TPassable, &PipelineError>) + 'static,
     {
@@ -171,8 +179,10 @@ impl<TPassable, TError: std::fmt::Debug> Pipeline<TPassable, TError> where Pipel
     /// use rustpipe::{Pipeline, Pipe, PipelineResult, PipelineError, StepFailure};
     ///
     /// // Pipe that fails intentionally
+    /// #[derive(Pipe)]
     /// struct FailingPipe;
-    /// impl Pipe<String, PipelineError> for FailingPipe {
+    ///
+    /// impl FailingPipe {
     ///     // Always return an error to simulate failure
     ///     fn handle(&self, _passable: String) -> Result<String, PipelineError> {
     ///         Err(PipelineError::StepFailure(StepFailure {
@@ -183,6 +193,7 @@ impl<TPassable, TError: std::fmt::Debug> Pipeline<TPassable, TError> where Pipel
     /// }
     ///
     /// // Pipe that uppercases the passable value
+    /// #[derive(Pipe)]
     /// struct UpperPipe;
     /// impl Pipe<String, PipelineError> for UpperPipe {
     ///     // Transform passable value by converting to uppercase
