@@ -6,7 +6,6 @@ pub mod types;
 use std::future::Future;
 #[cfg(feature = "async")]
 use std::pin::Pin;
-use std::sync::Arc;
 pub use crate::errors::*;
 pub use crate::types::*;
 
@@ -85,71 +84,48 @@ pub struct Pipeline<TPassable, TError> {
     taps: Vec<Box<dyn Fn(&TPassable)>>,
 }
 
-
-
-
-
-
-
-
 impl<TPassable, TError: std::fmt::Debug> Pipeline<TPassable, TError> where PipelineError: From<TError> {
     /// Creates a new, empty pipeline instance.
     ///
     /// **Generics**
-    /// - `TPassable` - The type of the value that flows through the pipeline.
+    /// - `TPassable` - The type of the passable value that flows through the pipeline.
     /// - `TError` - The error type returned when a pipe fails.
     ///
     /// **Returns**
-    /// - A fresh pipeline instance with no input and no pipes.
+    /// - A fresh pipeline instance with no passable value and no pipes.
     /// - If the `taps` feature is enabled, initializes an empty taps vector.
     ///
     /// **Usage**
     /// ```rust
     /// // Import pipeline types and traits
+    /// use std::sync::Arc;
     /// use rustpipe::{Pipeline, Pipe, PipelineResult, PipelineError};
     ///
-    /// // Pipe that uppercases the input
-    /// struct UpperPipe;
-    /// impl Pipe<String, PipelineError> for UpperPipe {
-    ///     fn handle(&self, input: String) -> Result<String, PipelineError> {
-    ///         Ok(input.to_uppercase())
-    ///     }
-    /// }
-    ///
-    /// // Pipe that adds a debug prefix
+    /// // Define a simple pipe that adds a debug prefix
     /// struct DebugPipe;
-    /// impl Pipe<String, PipelineError> for DebugPipe {
-    ///     fn handle(&self, input: String) -> Result<String, PipelineError> {
-    ///         Ok(format!("[DEBUG] {}", input))
-    ///     }
-    /// }
     ///
-    /// // Pipe that appends a suffix
-    /// struct SuffixPipe;
-    /// impl Pipe<String, PipelineError> for SuffixPipe {
-    ///     fn handle(&self, input: String) -> Result<String, PipelineError> {
-    ///         Ok(format!("{}!!!", input))
+    /// // Implement Pipe trait for debug pipe
+    /// impl Pipe<String, PipelineError> for DebugPipe {
+    ///     // Transform passable value by prefixing "[DEBUG]"
+    ///     fn handle(&self, passable: String) -> Result<String, PipelineError> {
+    ///         Ok(format!("[DEBUG] {}", passable))
     ///     }
     /// }
     ///
     /// fn main() {
-    ///     // Create a new pipeline
+    ///     // Create a new pipeline instance
     ///     let result: PipelineResult<String> = Pipeline::new()
-    ///         // Provide initial input
+    ///         // Provide initial passable value
     ///         .send("hello".to_string())
-    ///         // Add UpperPipe only if condition is true
-    ///         .when(true, Box::new(UpperPipe))
-    ///         // Add DebugPipe only if condition is false
-    ///         .unless(false, Box::new(DebugPipe))
-    ///         // Always run SuffixPipe through the pipeline
-    ///         .through(Box::new(SuffixPipe))
-    ///         // Execute pipeline and return result
+    ///         // Add debug pipe because condition is true
+    ///         .when(true, Arc::new(DebugPipe))
+    ///         // Execute pipeline and return final passable value
     ///         .then_return();
     ///
     ///     // Ensure pipeline succeeded
     ///     assert!(result.is_ok());
     ///     // Verify output matches expected
-    ///     assert_eq!(result.unwrap(), "[DEBUG] HELLO!!!");
+    ///     assert_eq!(result.unwrap(), "[DEBUG] hello");
     /// }
     /// ```
     pub fn new() -> Self {
@@ -160,6 +136,93 @@ impl<TPassable, TError: std::fmt::Debug> Pipeline<TPassable, TError> where Pipel
             #[cfg(feature = "taps")]
             taps: Vec::new(),
         }
+    }
+
+    /// Intercepts errors and allows recovery via a closure.
+    ///
+    /// Parameters:
+    /// - `f`: A closure (`TFallback`) that takes a [`PipelineError`] and produces a fallback `TPassable`.
+    ///
+    /// Generics:
+    /// - `TPassable`: The type of the passable value that flows through the pipeline.
+    /// - `TError`: The error type returned when a pipe fails.
+    /// - `TFallback`: A closure type that maps a [`PipelineError`] into a fallback `TPassable`.
+    ///
+    /// **Returns**
+    /// - `Ok(TPassable)`: Either the fully processed pipeline value or the recovered value from `f`.
+    /// - `Err(PipelineError)`: Only if the initial passable value is missing.
+    ///
+    /// Usage:
+    /// ```rust
+    /// use std::sync::Arc;
+    /// use rustpipe::{Pipeline, Pipe, PipelineResult, PipelineError, StepFailure};
+    ///
+    /// // Pipe that fails intentionally
+    /// struct FailingPipe;
+    /// impl Pipe<String, PipelineError> for FailingPipe {
+    ///     // Always return an error to simulate failure
+    ///     fn handle(&self, _passable: String) -> Result<String, PipelineError> {
+    ///         Err(PipelineError::StepFailure(StepFailure {
+    ///             step: "FailingPipe",
+    ///             message: "Intentional failure".to_string()
+    ///         }))
+    ///     }
+    /// }
+    ///
+    /// // Pipe that uppercases the passable value
+    /// struct UpperPipe;
+    /// impl Pipe<String, PipelineError> for UpperPipe {
+    ///     // Transform passable value by converting to uppercase
+    ///     fn handle(&self, passable: String) -> Result<String, PipelineError> {
+    ///         Ok(passable.to_uppercase())
+    ///     }
+    /// }
+    ///
+    /// fn main() {
+    ///     // Create pipeline and provide initial passable value
+    ///     let result: PipelineResult<String> = Pipeline::new()
+    ///         .send("hello".to_string())
+    ///         // Add failing pipe (will trigger error)
+    ///         .through(vec![Arc::new(FailingPipe)])
+    ///         // Add upper pipe (would run if no error)
+    ///         .through(vec![Arc::new(UpperPipe)])
+    ///         // Rescue closure recovers from error
+    ///         .rescue(|err| {
+    ///             format!("[RECOVERED after {:?}]", err)
+    ///         });
+    ///
+    ///     // Ensure pipeline succeeded despite failure
+    ///     assert!(result.is_ok());
+    ///     // Verify output matches expected recovery message
+    ///     assert_eq!(
+    ///         result.unwrap(),
+    ///         "[RECOVERED after StepFailure { step: \"FailingPipe\", message: \"Intentional failure\" }]"
+    ///     );
+    /// }
+    /// ```
+    pub fn rescue<TFallback>(self, f: TFallback) -> PipelineResult<TPassable>
+    where
+        TFallback: FnOnce(PipelineError) -> TPassable,
+    {
+        // Ensure we have an initial passable value, otherwise return InputMissing error
+        let mut passable = self.passable.ok_or(PipelineError::InputMissing)?;
+
+        // Iterate over all pipes sequentially
+        for pipe in &self.pipes {
+            match pipe.handle(passable) {
+                // update passable value
+                Ok(val) => passable = val,
+
+                // invoke recovery closure
+                Err(err) => {
+                    let recovered = f(utility::step_failure_from::<TError, TPassable>(err).into());
+                    return Ok(recovered);
+                }
+            }
+        }
+
+        // return final passable value
+        Ok(passable)
     }
 
     /// Provides the initial passable value to the pipeline.
@@ -211,76 +274,6 @@ impl<TPassable, TError: std::fmt::Debug> Pipeline<TPassable, TError> where Pipel
         self
     }
 
-    /// Intercepts errors and allows recovery via a closure.
-    ///
-    /// **Parameters**
-    /// - `f` - A closure that takes a [`PipelineError`] and produces a fallback `TPassable`.
-    ///
-    /// **Generics**
-    /// - `TPassable` - The type of the value that flows through the pipeline.
-    /// - `TError` - The error type returned when a pipe fails.
-    ///
-    /// **Returns**
-    /// - `Ok(TPassable)`: Either the fully processed pipeline value or the recovered value from `f`.
-    /// - `Err(PipelineError)`: Only if the initial input is missing.
-    ///
-    /// **Usage**
-    /// ```rust
-    /// use rustpipe::{Pipeline, Pipe, PipelineResult, PipelineError, StepFailure};
-    ///
-    /// // Pipe that fails intentionally
-    /// struct FailingPipe;
-    /// impl Pipe<String, PipelineError> for FailingPipe {
-    ///     fn handle(&self, _input: String) -> Result<String, PipelineError> {
-    ///         Err(PipelineError::StepFailure(StepFailure {
-    ///             step: "FailingPipe",
-    ///             message: "Intentional failure".to_string()
-    ///         }))
-    ///     }
-    /// }
-    ///
-    /// // Pipe that uppercases the input
-    /// struct UpperPipe;
-    /// impl Pipe<String, PipelineError> for UpperPipe {
-    ///     fn handle(&self, input: String) -> Result<String, PipelineError> {
-    ///         Ok(input.to_uppercase())
-    ///     }
-    /// }
-    ///
-    /// fn main() {
-    ///     let result: PipelineResult<String> = Pipeline::new()
-    ///         .send("hello".to_string())
-    ///         .through(vec![Box::new(FailingPipe)]) // must wrap in vec![...]
-    ///         .through(vec![Box::new(UpperPipe)])   // also wrap in vec![...]
-    ///         .rescue(|err| {
-    ///             format!("[RECOVERED after {:?}]", err)
-    ///         });
-    ///
-    ///     assert!(result.is_ok());
-    ///     assert_eq!(
-    ///         result.unwrap(),
-    ///         "[RECOVERED after StepFailure { step: \"FailingPipe\", message: \"Intentional failure\" }]"
-    ///     );
-    /// }
-    /// ```
-    pub fn rescue<F>(self, f: F) -> PipelineResult<TPassable>
-    where
-        F: FnOnce(PipelineError) -> TPassable,
-    {
-        let mut passable = self.passable.ok_or(PipelineError::InputMissing)?;
-        for pipe in &self.pipes {
-            match pipe.handle(passable) {
-                Ok(val) => passable = val,
-                Err(err) => {
-                    // Recovery closure is actually used here
-                    let recovered = f(utility::step_failure_from::<TError, TPassable>(err).into());
-                    return Ok(recovered);
-                }
-            }
-        }
-        Ok(passable)
-    }
-
     #[cfg(feature = "taps")]
     pub fn tap<F>(mut self, f: F) -> Self
     where
@@ -297,14 +290,6 @@ impl<TPassable, TError: std::fmt::Debug> Pipeline<TPassable, TError> where Pipel
     {
         if let Some(ref passable) = self.passable {
             f(passable);
-        }
-        self
-    }
-
-    /// Adds a sequence of pipes to the pipeline.
-    pub fn through(mut self, pipes: Vec<PipeType<TPassable, TError>>) -> Self {
-        for step in pipes {
-            self.pipes.push(step);
         }
         self
     }
@@ -364,14 +349,127 @@ impl<TPassable, TError: std::fmt::Debug> Pipeline<TPassable, TError> where Pipel
         Ok(passable)
     }
 
+    /// Adds a sequence of pipes to the pipeline.
+    ///
+    /// **Parameters**
+    /// - `pipes` - A vector of [`PipeType`] instances to be executed sequentially.
+    ///
+    /// **Generics**
+    /// - `TPassable` - The type of the passable value that flows through the pipeline.
+    /// - `TError` - The error type returned when a pipe fails.
+    ///
+    /// **Returns**
+    /// - The pipeline instance with the provided pipes appended in order.
+    /// - If no pipes are provided, the pipeline remains unchanged.
+    ///
+    /// **Usage**
+    /// ```rust
+    /// // Import pipeline types and traits
+    /// use std::sync::Arc;
+    /// use rustpipe::{Pipeline, Pipe, PipelineResult, PipelineError, PipeType};
+    ///
+    /// // Define a pipe that uppercases the passable value
+    /// struct UpperPipe;
+    /// impl Pipe<String, PipelineError> for UpperPipe {
+    ///     // Transform passable value by converting to uppercase
+    ///     fn handle(&self, passable: String) -> Result<String, PipelineError> {
+    ///         Ok(passable.to_uppercase())
+    ///     }
+    /// }
+    ///
+    /// // Define a pipe that adds a debug prefix
+    /// struct DebugPipe;
+    /// impl Pipe<String, PipelineError> for DebugPipe {
+    ///     // Transform passable value by prefixing "[DEBUG]"
+    ///     fn handle(&self, passable: String) -> Result<String, PipelineError> {
+    ///         Ok(format!("[DEBUG] {}", passable))
+    ///     }
+    /// }
+    ///
+    /// fn main() {
+    ///     // Create pipeline and provide initial passable value
+    ///     let result: PipelineResult<String> = Pipeline::new()
+    ///         .send("hello".to_string())
+    ///         // Add multiple pipes sequentially (UpperPipe then DebugPipe)
+    ///         .through(vec![Arc::new(UpperPipe), Arc::new(DebugPipe)])
+    ///         // Execute pipeline and return final passable value
+    ///         .then_return();
+    ///
+    ///     // Ensure pipeline succeeded
+    ///     assert!(result.is_ok());
+    ///     // Verify output matches expected
+    ///     assert_eq!(result.unwrap(), "[DEBUG] HELLO");
+    /// }
+    /// ```
+    pub fn through(mut self, pipes: Vec<PipeType<TPassable, TError>>) -> Self {
+        for step in pipes {
+            self.pipes.push(step);
+        }
+        self
+    }
+
+    /// Adds a pipe that runs only if the given condition evaluates to `false`.
+    ///
+    /// **Parameters**
+    /// - `condition` - A boolean flag; if `false`, the provided pipe will be added.
+    /// - `pipe` - A [`PipeType`] that should run only when the condition is false.
+    ///
+    /// **Generics**
+    /// - `TPassable` - The type of the passable value that flows through the pipeline.
+    /// - `TError` - The error type returned when a pipe fails.
+    ///
+    /// **Returns**
+    /// - The pipeline instance with the conditional pipe included if `condition` is false.
+    /// - Otherwise, the pipeline instance unchanged.
+    ///
+    /// **Usage**
+    /// ```rust
+    /// // Import pipeline types and traits
+    /// use std::sync::Arc;
+    /// use rustpipe::{Pipeline, Pipe, PipelineResult, PipelineError, PipeType};
+    ///
+    /// // Define a simple pipe that adds a debug prefix
+    /// struct DebugPipe;
+    ///
+    /// // Implement pipe trait for debug pipe
+    /// impl Pipe<String, PipelineError> for DebugPipe {
+    ///     // Transform passable value by prefixing "[DEBUG]"
+    ///     fn handle(&self, passable: String) -> Result<String, PipelineError> {
+    ///         Ok(format!("[DEBUG] {}", passable))
+    ///     }
+    /// }
+    ///
+    /// // Entry point
+    /// fn main() {
+    ///     // Create pipeline and provide initial passable value
+    ///     let result: PipelineResult<String> = Pipeline::new()
+    ///         .send("hello".to_string())
+    ///         // Add debug pipe because condition is false
+    ///         .unless(false, Arc::new(DebugPipe))
+    ///         // Execute pipeline and return final passable value
+    ///         .then_return();
+    ///
+    ///     // Ensure pipeline succeeded
+    ///     assert!(result.is_ok());
+    ///     // Verify output matches expected
+    ///     assert_eq!(result.unwrap(), "[DEBUG] hello");
+    /// }
+    /// ```
+    pub fn unless(mut self, condition: bool, pipe: PipeType<TPassable, TError>) -> Self {
+        if !condition {
+            self.pipes.push(pipe);
+        }
+        self
+    }
+
     /// Adds a pipe that runs only if the given condition evaluates to `true`.
     ///
     /// **Parameters**
     /// - `condition` - A boolean flag; if `true`, the provided pipe will be added.
-    /// - `pipe` - A pipeline unit implementing [`Pipe`] that should run only when the condition is true.
+    /// - `pipe` - A [`PipeType`] that should run only when the condition is true.
     ///
     /// **Generics**
-    /// - `TPassable` - The type of the value that flows through the pipeline.
+    /// - `TPassable` - The type of the passable value that flows through the pipeline.
     /// - `TError` - The error type returned when a pipe fails.
     ///
     /// **Returns**
@@ -381,12 +479,13 @@ impl<TPassable, TError: std::fmt::Debug> Pipeline<TPassable, TError> where Pipel
     /// **Usage**
     /// ```rust
     /// // Import pipeline types and traits
+    /// use std::sync::Arc;
     /// use rustpipe::{Pipeline, Pipe, PipelineResult, PipelineError};
     ///
     /// // Define a simple pipe that adds a debug prefix
     /// struct DebugPipe;
     ///
-    /// // Implement Pipe trait for DebugPipe
+    /// // Implement pipe trait for debug pipe
     /// impl Pipe<String, PipelineError> for DebugPipe {
     ///     // Transform input by prefixing "[DEBUG]"
     ///     fn handle(&self, input: String) -> Result<String, PipelineError> {
@@ -396,11 +495,11 @@ impl<TPassable, TError: std::fmt::Debug> Pipeline<TPassable, TError> where Pipel
     ///
     /// // Entry point
     /// fn main() {
-    ///     // Create pipeline and provide initial input
+    ///     // Create pipeline and provide initial passable value
     ///     let result: PipelineResult<String> = Pipeline::new()
     ///         .send("hello".to_string())
-    ///         // Add DebugPipe because condition is true
-    ///         .when(true, Box::new(DebugPipe))
+    ///         // Add Debug pipe because condition is true
+    ///         .when(true, Arc::new(DebugPipe))
     ///         // Execute pipeline and return result
     ///         .then_return();
     ///
@@ -412,59 +511,6 @@ impl<TPassable, TError: std::fmt::Debug> Pipeline<TPassable, TError> where Pipel
     /// ```
     pub fn when(mut self, condition: bool, pipe: PipeType<TPassable, TError>) -> Self {
         if condition {
-            self.pipes.push(pipe);
-        }
-        self
-    }
-
-    /// Adds a pipe that runs only if the given condition evaluates to `false`.
-    ///
-    /// **Parameters**
-    /// - `condition` - A boolean flag; if `false`, the provided pipe will be added.
-    /// - `pipe` - A pipeline unit implementing [`Pipe`] that should run only when the condition is false.
-    ///
-    /// **Generics**
-    /// - `TPassable` - The type of the value that flows through the pipeline.
-    /// - `TError` - The error type returned when a pipe fails.
-    ///
-    /// **Returns**
-    /// - The pipeline instance with the conditional pipe included if `condition` is false.
-    /// - Otherwise, the pipeline instance unchanged.
-    ///
-    /// **Usage**
-    /// ```rust
-    /// // Import pipeline types and traits
-    /// use rustpipe::{Pipeline, Pipe, PipelineResult, PipelineError};
-    ///
-    /// // Define a simple pipe that adds a debug prefix
-    /// struct DebugPipe;
-    ///
-    /// // Implement Pipe trait for DebugPipe
-    /// impl Pipe<String, PipelineError> for DebugPipe {
-    ///     // Transform input by prefixing "[DEBUG]"
-    ///     fn handle(&self, input: String) -> Result<String, PipelineError> {
-    ///         Ok(format!("[DEBUG] {}", input))
-    ///     }
-    /// }
-    ///
-    /// // Entry point
-    /// fn main() {
-    ///     // Create pipeline and provide initial input
-    ///     let result: PipelineResult<String> = Pipeline::new()
-    ///         .send("hello".to_string())
-    ///         // Add DebugPipe because condition is false
-    ///         .unless(false, Box::new(DebugPipe))
-    ///         // Execute pipeline and return result
-    ///         .then_return();
-    ///
-    ///     // Ensure pipeline succeeded
-    ///     assert!(result.is_ok());
-    ///     // Verify output matches expected
-    ///     assert_eq!(result.unwrap(), "[DEBUG] hello");
-    /// }
-    /// ```
-    pub fn unless(mut self, condition: bool, pipe: PipeType<TPassable, TError>) -> Self {
-        if !condition {
             self.pipes.push(pipe);
         }
         self
