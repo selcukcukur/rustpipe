@@ -6,7 +6,7 @@ pub mod types;
 use std::future::Future;
 #[cfg(feature = "async")]
 use std::pin::Pin;
-
+use std::sync::Arc;
 pub use crate::errors::*;
 pub use crate::types::*;
 
@@ -75,7 +75,7 @@ pub struct Pipeline<TPassable, TError> {
     /// A vector of boxed pipes (`Box<dyn Pipe<TPassable, TError>>`)
     /// that will be executed sequentially. Each pipe transforms
     /// the input or returns an error.
-    pipes: Vec<Box<dyn Pipe<TPassable, TError>>>,
+    pipes: Vec<PipeType<TPassable, TError>>,
 
     /// A collection of observer closures (`Fn(&TPassable)`) that run
     /// after each successful pipe execution. These taps allow
@@ -301,9 +301,8 @@ impl<TPassable, TError: std::fmt::Debug> Pipeline<TPassable, TError> where Pipel
         self
     }
 
-
     /// Adds a sequence of pipes to the pipeline.
-    pub fn through(mut self, pipes: Vec<Box<dyn Pipe<TPassable, TError>>>) -> Self {
+    pub fn through(mut self, pipes: Vec<PipeType<TPassable, TError>>) -> Self {
         for step in pipes {
             self.pipes.push(step);
         }
@@ -311,40 +310,57 @@ impl<TPassable, TError: std::fmt::Debug> Pipeline<TPassable, TError> where Pipel
     }
 
     /// Executes the pipeline and applies a final transformation closure to the result.
-    pub fn then<F, R>(self, f: F) -> PipelineResult<R>
+    pub fn then<TTransform, TOutput>(self, transform: TTransform) -> PipelineResult<TOutput>
     where
-        F: FnOnce(TPassable) -> R,
+        TTransform: FnOnce(TPassable) -> TOutput,
     {
+        // Ensure we have an initial input; otherwise return InputMissing error.
         let mut passable = self.passable.ok_or(PipelineError::InputMissing)?;
+
+        // Run all pipes sequentially.
         for step in &self.pipes {
             match step.handle(passable) {
+                // update passable value.
                 Ok(val) => passable = val,
-                Err(err) => {
-                    return Err(utility::step_failure_from::<TError, TPassable>(err).into())
-                }
-            }
-        }
-        Ok(f(passable))
-    }
 
-    /// Finalizes the pipeline and returns the processed output.
-    pub fn then_return(self) -> PipelineResult<TPassable> {
-        let mut passable = utility::require_passable(self.passable)?;
-        for step in &self.pipes {
-            match step.handle(passable) {
-                Ok(val) => {
-                    passable = val;
-
-                    #[cfg(feature = "taps")]
-                    {
-                        utility::run_taps(&self.taps, &passable);
-                    }
-                }
+                // wrap error into pipeline error and stop execution.
                 Err(err) => {
                     return Err(utility::step_failure_from::<TError, TPassable>(err).into());
                 }
             }
         }
+
+        // Apply final closure `transform` to the result.
+        Ok(transform(passable))
+    }
+
+    /// Finalizes the pipeline and returns the processed output.
+    pub fn then_return(self) -> PipelineResult<TPassable> {
+        // Ensure we actually have an input value; otherwise return InputMissing error.
+        let mut passable = utility::require_passable(self.passable)?;
+
+        // Iterate over all pipes in sequence.
+        for step in &self.pipes {
+            match step.handle(passable) {
+                // update passable value.
+                Ok(val) => {
+                    passable = val;
+
+                    // If taps feature is enabled, run all observer closures.
+                    #[cfg(feature = "taps")]
+                    {
+                        utility::run_taps(&self.taps, &passable);
+                    }
+                }
+
+                // wrap error into pipeline error and stop execution.
+                Err(err) => {
+                    return Err(utility::step_failure_from::<TError, TPassable>(err).into());
+                }
+            }
+        }
+
+        // All pipes succeeded → return final passable value.
         Ok(passable)
     }
 
@@ -394,7 +410,7 @@ impl<TPassable, TError: std::fmt::Debug> Pipeline<TPassable, TError> where Pipel
     ///     assert_eq!(result.unwrap(), "[DEBUG] hello");
     /// }
     /// ```
-    pub fn when(mut self, condition: bool, pipe: Box<dyn Pipe<TPassable, TError>>) -> Self {
+    pub fn when(mut self, condition: bool, pipe: PipeType<TPassable, TError>) -> Self {
         if condition {
             self.pipes.push(pipe);
         }
@@ -447,7 +463,7 @@ impl<TPassable, TError: std::fmt::Debug> Pipeline<TPassable, TError> where Pipel
     ///     assert_eq!(result.unwrap(), "[DEBUG] hello");
     /// }
     /// ```
-    pub fn unless(mut self, condition: bool, pipe: Box<dyn Pipe<TPassable, TError>>) -> Self {
+    pub fn unless(mut self, condition: bool, pipe: PipeType<TPassable, TError>) -> Self {
         if !condition {
             self.pipes.push(pipe);
         }

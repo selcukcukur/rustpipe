@@ -33,6 +33,9 @@
     tokio = { version ="1.52.3", features = ["full"], optional = true }
 thiserror = "2.0.18"
 
+[dev-dependencies]
+criterion = "0.8.2"
+
 # Library configuration
 [lib]
     # The library name (as exposed to other crates)
@@ -40,6 +43,7 @@ thiserror = "2.0.18"
 
     # Path to the library entry point (main source file)
     path = "src/lib.rs"
+    crate-type = ["rlib", "cdylib"]
 
 [features]
     default = []
@@ -54,3 +58,13 @@ thiserror = "2.0.18"
     name = "async"
     path = "../../examples/async.rs"
     required-features = ["async"]
+
+[[bench]]
+    name = "bench_large_pipeline"  # Must match the filename in benches/my_benchmark.rs
+    harness = false
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+opt-level = 3
