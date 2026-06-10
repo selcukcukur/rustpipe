@@ -12,25 +12,30 @@ pub trait Pipe<T, E> {
     fn handle(&self, passable: T) -> Result<T, E>;
 }
 
-pub struct Pipeline<TPipe, TError> {
+/// A configurable pipeline for sequential data processing.
+///
+/// **Generics**
+/// - `TPassable` - The type of the value that flows through the pipeline.
+/// - `TError` - The error type returned by pipes when processing fails.
+pub struct Pipeline<TPassable, TError> {
     /// The optional input value passed into the pipeline.
     /// This is provided via [`Pipeline::send`] and becomes
     /// the starting point for all subsequent pipes.
-    passable: Option<TPipe>,
+    passable: Option<TPassable>,
 
-    /// A vector of boxed pipes (`Box<dyn Pipe<T, E>>`) that
-    /// will be executed sequentially. Each pipe transforms
+    /// A vector of boxed pipes (`Box<dyn Pipe<TPassable, TError>>`)
+    /// that will be executed sequentially. Each pipe transforms
     /// the input or returns an error.
-    pipes: Vec<Box<dyn Pipe<TPipe, TError>>>,
+    pipes: Vec<Box<dyn Pipe<TPassable, TError>>>,
 
-    /// A collection of observer closures (`Fn(&T)`) that run
+    /// A collection of observer closures (`Fn(&TPassable)`) that run
     /// after each successful pipe execution. These taps allow
     /// side effects such as logging, metrics, or debugging
     /// without modifying the pipeline value itself.
-    taps: Vec<Box<dyn Fn(&TPipe)>>,
+    taps: Vec<Box<dyn Fn(&TPassable)>>,
 }
 
-impl<T, E: std::fmt::Debug> Pipeline<T, E> where PipelineError: From<E> {
+impl<TPassable, TError: std::fmt::Debug> Pipeline<TPassable, TError> where PipelineError: From<TError> {
     /// Creates a new, empty pipeline instance.
     pub fn new() -> Self {
         Self {
@@ -41,22 +46,22 @@ impl<T, E: std::fmt::Debug> Pipeline<T, E> where PipelineError: From<E> {
     }
 
     /// Provides the initial passable value to the pipeline.
-    pub fn send(mut self, passable: T) -> Self {
+    pub fn send(mut self, passable: TPassable) -> Self {
         self.passable = Some(passable);
         self
     }
 
     /// Intercepts errors and allows recovery via a closure.
-    pub fn rescue<F>(self, f: F) -> PipelineResult<T>
+    pub fn rescue<F>(self, f: F) -> PipelineResult<TPassable>
     where
-        F: FnOnce(PipelineError) -> T,
+        F: FnOnce(PipelineError) -> TPassable,
     {
         let mut passable = self.passable.ok_or(PipelineError::InputMissing)?;
         for step in &self.pipes {
             match step.handle(passable) {
                 Ok(val) => passable = val,
                 Err(err) => {
-                    return Err(utility::step_failure_from::<E, T>(err).into())
+                    return Err(utility::step_failure_from::<TError, TPassable>(err).into())
                 }
             }
         }
@@ -66,14 +71,14 @@ impl<T, E: std::fmt::Debug> Pipeline<T, E> where PipelineError: From<E> {
     /// Observes the current pipeline passable without modifying it.
     pub fn tap<F>(mut self, f: F) -> Self
     where
-        F: Fn(&T) + 'static,
+        F: Fn(&TPassable) + 'static,
     {
         self.taps.push(Box::new(f));
         self
     }
 
     /// Adds a sequence of pipes to the pipeline.
-    pub fn through(mut self, pipes: Vec<Box<dyn Pipe<T, E>>>) -> Self {
+    pub fn through(mut self, pipes: Vec<Box<dyn Pipe<TPassable, TError>>>) -> Self {
         for step in pipes {
             self.pipes.push(step);
         }
@@ -83,14 +88,14 @@ impl<T, E: std::fmt::Debug> Pipeline<T, E> where PipelineError: From<E> {
     /// Executes the pipeline and applies a final transformation closure to the result.
     pub fn then<F, R>(self, f: F) -> PipelineResult<R>
     where
-        F: FnOnce(T) -> R,
+        F: FnOnce(TPassable) -> R,
     {
         let mut passable = self.passable.ok_or(PipelineError::InputMissing)?;
         for step in &self.pipes {
             match step.handle(passable) {
                 Ok(val) => passable = val,
                 Err(err) => {
-                    return Err(utility::step_failure_from::<E, T>(err).into())
+                    return Err(utility::step_failure_from::<TError, TPassable>(err).into())
                 }
             }
         }
@@ -98,7 +103,7 @@ impl<T, E: std::fmt::Debug> Pipeline<T, E> where PipelineError: From<E> {
     }
 
     /// Finalizes the pipeline and returns the processed output.
-    pub fn then_return(self) -> PipelineResult<T> {
+    pub fn then_return(self) -> PipelineResult<TPassable> {
         let mut passable = utility::require_passable(self.passable)?;
         for step in &self.pipes {
             match step.handle(passable) {
@@ -107,7 +112,7 @@ impl<T, E: std::fmt::Debug> Pipeline<T, E> where PipelineError: From<E> {
                     utility::run_taps(&self.taps, &passable);
                 }
                 Err(err) => {
-                    return Err(utility::step_failure_from::<E, T>(err).into());
+                    return Err(utility::step_failure_from::<TError, TPassable>(err).into());
                 }
             }
         }
@@ -115,7 +120,7 @@ impl<T, E: std::fmt::Debug> Pipeline<T, E> where PipelineError: From<E> {
     }
 
     /// Adds a step that runs only if condition is true.
-    pub fn when(mut self, condition: bool, step: Box<dyn Pipe<T, E>>) -> Self {
+    pub fn when(mut self, condition: bool, step: Box<dyn Pipe<TPassable, TError>>) -> Self {
         if condition {
             self.pipes.push(step);
         }
@@ -123,7 +128,7 @@ impl<T, E: std::fmt::Debug> Pipeline<T, E> where PipelineError: From<E> {
     }
 
     /// Adds a step that runs only if condition is false.
-    pub fn unless(mut self, condition: bool, step: Box<dyn Pipe<T, E>>) -> Self {
+    pub fn unless(mut self, condition: bool, step: Box<dyn Pipe<TPassable, TError>>) -> Self {
         if !condition {
             self.pipes.push(step);
         }
