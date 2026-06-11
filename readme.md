@@ -9,12 +9,12 @@
 ![Clippy](https://img.shields.io/badge/lints-clippy%20clean-brightgreen.svg)
 ![Tests](https://img.shields.io/badge/tests-sync%20%2B%20async%20%2B%20macros-brightgreen.svg)
 
-> Type-safe middleware and transform pipelines for Rust.
+> Built around the idea that every pipeline should remain explicit, predictable, and easy to reason about.
 
 **rustpipe** is a framework-agnostic pipeline crate for building clear, composable data flows. It
 separates two common needs cleanly:
 
-* **`Pipeline`** is Laravel-inspired middleware. A pipe receives `Next`, so it can continue,
+* **`Pipeline`** is continuation-based middleware. A pipe receives `Next`, so it can continue,
   short-circuit, wrap downstream output, or return an error.
 * **`TransformPipeline`** is a direct sequential transformer. A pipe receives a value and returns
   the next value without continuation/carry behavior.
@@ -124,7 +124,7 @@ assert_eq!(output, "HELLO");
 
 ### `Pipeline<TPassable, TError = PipelineError>`
 
-Laravel-style middleware pipeline.
+Continuation-based middleware pipeline.
 
 * `new()` creates an empty pipeline.
 * `send(passable)` sets the initial value.
@@ -252,4 +252,8 @@ If you think there is a security vulnerability in **rustpipe**, please email **S
 
 ## License
 
-**rustpipe** is open source under the **[MIT License](license.md)**.
+**Rustpipe** project is published as open source. The **[MIT License](license.md)** is used, which
+is one of the well-known open source coding licenses. You can get detailed information about the license terms
+by visiting the link below.
+
+- **[MIT License](license.md)**
