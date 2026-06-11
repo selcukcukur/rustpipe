@@ -2,7 +2,7 @@
 [workspace]
 members = [
     "crates/rustpipe"
-, "crates/rustpipe-macros"]
+, "crates/rustpipe-core", "crates/rustpipe-macros"]
 resolver = "3"
 
 [profile.release]

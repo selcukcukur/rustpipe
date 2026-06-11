@@ -1,13 +1,13 @@
 //! Type-safe middleware and transform pipelines for Rust.
 //!
 //! **rustpipe** provides two pipeline styles:
-//! - [`Pipeline`] for Laravel-inspired middleware that can call `Next`.
+//! - [`Pipeline`] for continuation-based middleware that can call `Next`.
 //! - [`TransformPipeline`] for direct sequential value transformations.
 
 /// Centralized error definitions and handling utilities.
 pub mod errors;
 
-/// Laravel-inspired middleware pipeline implementation.
+/// Continuation-based middleware pipeline implementation.
 pub mod middleware;
 
 /// Sequential transform pipeline implementation.

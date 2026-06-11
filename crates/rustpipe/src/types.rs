@@ -63,7 +63,7 @@ pub type Tap<TPassable> = Box<dyn Fn(&TPassable) + Send + Sync>;
 
 /// The continuation object passed to middleware pipes.
 ///
-/// `Next` is inspired by Laravel's pipeline middleware flow. A middleware may call
+/// `Next` represents the remaining middleware stack. A middleware may call
 /// [`Next::handle`] to continue, return early to short-circuit, or modify the
 /// returned value after the rest of the stack has completed.
 ///

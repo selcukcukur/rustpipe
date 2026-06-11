@@ -1,5 +1,8 @@
-![CI](https://github.com/selcukcukur/rustpipe/actions/workflows/ci.yml/badge.svg)
-![Publish](https://github.com/selcukcukur/rustpipe/actions/workflows/publish.yml/badge.svg)
+![Rustpipe Linting](https://github.com/selcukcukur/rustpipe/actions/workflows/linting.yml/badge.svg)
+![Rustpipe Tests](https://github.com/selcukcukur/rustpipe/actions/workflows/tests.yml/badge.svg)
+![Rustpipe Benches](https://github.com/selcukcukur/rustpipe/actions/workflows/benches.yml/badge.svg)
+![Rustpipe Examples](https://github.com/selcukcukur/rustpipe/actions/workflows/examples.yml/badge.svg)
+![Rustpipe Publish](https://github.com/selcukcukur/rustpipe/actions/workflows/publish.yml/badge.svg)
 [![Coverage](https://codecov.io/gh/selcukcukur/rustpipe/branch/main/graph/badge.svg)](https://codecov.io/gh/selcukcukur/rustpipe)
 [![Crates.io](https://img.shields.io/crates/v/rustpipe.svg)](https://crates.io/crates/rustpipe)
 [![Docs.rs](https://docs.rs/rustpipe/badge.svg)](https://docs.rs/rustpipe)
@@ -33,10 +36,11 @@ as they can be converted into `PipelineError`.
 * Optional observation hooks through the `taps` feature
 * Optional proc macros behind the `macros` feature
 * Centralized error handling through `PipelineError`
-* Criterion benchmarks for large pipeline and stress scenarios
-* CI workflows for Windows, Linux, and macOS
+* Criterion benchmarks split by sync, async, transform, middleware, and full pipeline scenarios
+* Focused Ubuntu-based CI workflows
 * Workspace rustfmt configuration through `rustfmt.toml`
 * Coverage reporting through cargo-tarpaulin and Codecov
+* Runnable crate examples for web adapters, validation, async jobs, and wgpu-style GPU pipelines
 
 ## Installation
 
@@ -294,16 +298,35 @@ Available attributes:
 
 Benchmarks live under `benches/*` and cover:
 
-* large transform pipelines,
-* large middleware pipelines,
-* short-circuit middleware stress,
-* string transform workloads.
+* `pipeline` - full middleware plus transform stress benchmark over 1000 items,
+* `sync_transform` - synchronous transform throughput,
+* `sync_middleware` - synchronous middleware throughput and short-circuit cost,
+* `async_transform` - asynchronous transform throughput,
+* `async_middleware` - asynchronous middleware throughput and short-circuit cost.
 
 Run them with:
 
 ```bash
 cargo bench -p rustpipe
 ```
+
+## Examples
+
+Runnable examples live under `examples/*`.
+
+```bash
+cargo run -p rustpipe --example basic_transform
+cargo run -p rustpipe --example middleware_auth
+cargo run -p rustpipe --example axum_adapter
+cargo run -p rustpipe --example actix_web_adapter
+cargo run -p rustpipe --example data_validation
+cargo run -p rustpipe --example gpu_wgpu_pipeline
+cargo run -p rustpipe --features async --example async_jobs
+```
+
+The web and GPU examples use framework-shaped adapter types instead of forcing heavy framework or
+GPU dependencies into the crate. They show how to place rustpipe around Axum-like handlers,
+Actix-like service requests, validation flows, async jobs, and wgpu-style render command pipelines.
 
 ## Security
 
