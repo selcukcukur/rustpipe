@@ -17,16 +17,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Run the linting matrix on all supported operating systems.
+  # Run linting on Ubuntu to keep feedback fast and runner usage focused.
   lint:
-    name: Lint (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-
-    # Keep every OS result visible even if one platform fails.
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+    name: Lint
+    runs-on: ubuntu-latest
 
     steps:
       # Checkout the repository so Cargo can inspect the workspace.
@@ -76,6 +70,6 @@ jobs:
       - name: Clippy
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
-      # Ensure release builds stay healthy on every supported platform.
+      # Ensure release builds stay healthy.
       - name: Build release
         run: cargo build --workspace --release --all-features

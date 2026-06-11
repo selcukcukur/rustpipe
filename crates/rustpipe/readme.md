@@ -37,7 +37,7 @@ as they can be converted into `PipelineError`.
 * Optional proc macros behind the `macros` feature
 * Centralized error handling through `PipelineError`
 * Criterion benchmarks split by sync, async, transform, middleware, and full pipeline scenarios
-* CI workflows for Windows, Linux, and macOS
+* Focused Ubuntu-based CI workflows
 * Workspace rustfmt configuration through `rustfmt.toml`
 * Coverage reporting through cargo-tarpaulin and Codecov
 * Runnable crate examples for web adapters, validation, async jobs, and wgpu-style GPU pipelines

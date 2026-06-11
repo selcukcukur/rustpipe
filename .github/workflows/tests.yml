@@ -17,23 +17,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Run the full test suite on every supported operating system.
+  # Run the full test suite on Ubuntu to keep feedback fast and focused.
   test:
-    name: Test (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-
-    # Keep every OS result visible even if one platform fails.
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+    name: Test
+    runs-on: ubuntu-latest
 
     steps:
       # Checkout the repository so Cargo can run tests.
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Install stable Rust for the test matrix.
+      # Install stable Rust for the Ubuntu test run.
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 

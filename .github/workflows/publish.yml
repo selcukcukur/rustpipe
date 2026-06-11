@@ -16,16 +16,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Verify the release candidate on every supported operating system.
+  # Verify the release candidate on Ubuntu before publishing.
   verify:
-    name: Verify (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-
-    # Keep every OS result visible even if one platform fails.
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+    name: Verify
+    runs-on: ubuntu-latest
 
     steps:
       # Checkout the release source.

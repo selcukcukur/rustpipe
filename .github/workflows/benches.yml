@@ -17,16 +17,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Compile benchmark targets on all supported operating systems.
+  # Compile benchmark targets on Ubuntu to keep runner usage focused.
   benches:
-    name: Benches (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-
-    # Keep every OS result visible even if one platform fails.
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+    name: Benches
+    runs-on: ubuntu-latest
 
     steps:
       # Checkout the repository so Cargo can find benchmark targets.

@@ -17,16 +17,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Compile example targets on all supported operating systems.
+  # Compile example targets on Ubuntu to keep runner usage focused.
   examples:
-    name: Examples (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-
-    # Keep every OS result visible even if one platform fails.
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+    name: Examples
+    runs-on: ubuntu-latest
 
     steps:
       # Checkout the repository so Cargo can find example targets.

@@ -24,7 +24,7 @@ separates two common needs cleanly:
 
 The crate supports sync by default, async through a feature flag, optional taps, optional proc
 macros, centralized `PipelineError` handling, integration tests, large-pipeline Criterion
-benchmarks, and CI/CD workflows for Windows, Linux, and macOS.
+benchmarks, and focused Ubuntu-based CI/CD workflows.
 
 ## Features
 
