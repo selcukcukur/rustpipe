@@ -2,6 +2,10 @@
 name = "rustpipe-macros"
 version = "0.1.0"
 edition = "2024"
+description = "Proc macros for rustpipe middleware and transform pipes."
+license = "MIT"
+repository = "https://github.com/selcukcukur/rustpipe"
+documentation = "https://docs.rs/rustpipe"
 
 [dependencies]
 syn = { version = "2.0.117", features = ["full"]}

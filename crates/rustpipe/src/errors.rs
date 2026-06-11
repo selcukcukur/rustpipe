@@ -1,12 +1,13 @@
 use thiserror::Error;
 
-/// The main categorized error type for pipeline execution.
+/// The centralized error type returned by public pipeline execution methods.
 ///
 /// **Errors**
 /// - `StepFailure` - Raised when a pipeline step fails with a specific message.
-/// - `InputMissing` - Raised when the pipeline is executed without any input provided.
-/// - `DispatchError` - Raised when an invalid or unsupported method dispatch occurs.
-/// - `RescueFailure` - Raised when a rescue fallback closure itself fails.
+/// - `InputMissing` - Raised when the pipeline is executed without input.
+/// - `DispatchError` - Raised when an invalid dispatch operation occurs.
+/// - `RescueFailure` - Raised when a rescue handler itself fails.
+/// - `Custom` - Wraps any external error that should leave the pipeline.
 #[derive(Debug, Error)]
 pub enum PipelineError {
     /// Raised when a pipeline step fails with a specific message.
@@ -24,6 +25,10 @@ pub enum PipelineError {
     /// Raised when a rescue fallback closure itself fails.
     #[error(transparent)]
     RescueFailure(#[from] RescueFailure),
+
+    /// Wraps any external error that should be propagated from the pipeline.
+    #[error(transparent)]
+    Custom(#[from] Box<dyn std::error::Error + Send + Sync>),
 }
 
 /// Represents a failure that occurred in a specific pipeline step.

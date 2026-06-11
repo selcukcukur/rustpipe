@@ -1,22 +1,24 @@
-use std::any::type_name;
-use crate::errors::StepFailure;
 use crate::errors::PipelineError;
+use crate::types::Tap;
 
-/// Tekrarlayan StepFailure oluşturma
-pub fn step_failure_from<E: std::fmt::Debug, T>(err: E) -> StepFailure {
-    StepFailure {
-        step: type_name::<E>(), // error tipinin adı
-        message: format!("{:?}", err),
-    }
-}
-
-/// Input kontrolünü kısaltmak için helper
+/// Requires a pipeline input value before execution starts.
+///
+/// **Parameters**
+/// - `passable` - The optional passable value stored by the pipeline.
+///
+/// **Returns**
+/// - `Ok(T)` - The passable value exists.
+/// - `Err(PipelineError::InputMissing)` - The pipeline was executed without `send`.
 pub fn require_passable<T>(passable: Option<T>) -> Result<T, PipelineError> {
     passable.ok_or(PipelineError::InputMissing)
 }
 
-/// Tap çağrılarını çalıştıran helper
-pub fn run_taps<T>(taps: &Vec<Box<dyn Fn(&T)>>, passable: &T) {
+/// Runs observer callbacks after successful pipeline stages.
+///
+/// **Parameters**
+/// - `taps` - Registered observer callbacks.
+/// - `passable` - The current passable value observed by each callback.
+pub fn run_taps<T>(taps: &[Tap<T>], passable: &T) {
     for tap in taps {
         tap(passable);
     }
