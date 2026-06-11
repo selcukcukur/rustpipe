@@ -33,10 +33,11 @@ as they can be converted into `PipelineError`.
 * Optional observation hooks through the `taps` feature
 * Optional proc macros behind the `macros` feature
 * Centralized error handling through `PipelineError`
-* Criterion benchmarks for large pipeline and stress scenarios
+* Criterion benchmarks split by sync, async, transform, middleware, and full pipeline scenarios
 * CI workflows for Windows, Linux, and macOS
 * Workspace rustfmt configuration through `rustfmt.toml`
 * Coverage reporting through cargo-tarpaulin and Codecov
+* Runnable crate examples for web adapters, validation, async jobs, and wgpu-style GPU pipelines
 
 ## Installation
 
@@ -294,16 +295,35 @@ Available attributes:
 
 Benchmarks live under `benches/*` and cover:
 
-* large transform pipelines,
-* large middleware pipelines,
-* short-circuit middleware stress,
-* string transform workloads.
+* `pipeline` - full middleware plus transform stress benchmark over 1000 items,
+* `sync_transform` - synchronous transform throughput,
+* `sync_middleware` - synchronous middleware throughput and short-circuit cost,
+* `async_transform` - asynchronous transform throughput,
+* `async_middleware` - asynchronous middleware throughput and short-circuit cost.
 
 Run them with:
 
 ```bash
 cargo bench -p rustpipe
 ```
+
+## Examples
+
+Runnable examples live under `examples/*`.
+
+```bash
+cargo run -p rustpipe --example basic_transform
+cargo run -p rustpipe --example middleware_auth
+cargo run -p rustpipe --example axum_adapter
+cargo run -p rustpipe --example actix_web_adapter
+cargo run -p rustpipe --example data_validation
+cargo run -p rustpipe --example gpu_wgpu_pipeline
+cargo run -p rustpipe --features async --example async_jobs
+```
+
+The web and GPU examples use framework-shaped adapter types instead of forcing heavy framework or
+GPU dependencies into the crate. They show how to place rustpipe around Axum-like handlers,
+Actix-like service requests, validation flows, async jobs, and wgpu-style render command pipelines.
 
 ## Security
 

@@ -33,8 +33,10 @@ benchmarks, and CI/CD workflows for Windows, Linux, and macOS.
 * Optional `taps` observers
 * Optional `macros` attributes: `#[pipe]` and `#[transform_pipe]`
 * Flexible errors: custom pipe errors can convert into `PipelineError`
-* Stress benchmarks in `crates/rustpipe/benches/*`
-* Functional tests in `crates/rustpipe/tests/*`
+* Stress benchmarks in `crates/rustpipe/benches/*`, split by sync, async, transform, middleware,
+  and full pipeline workloads
+* Functional tests in `crates/rustpipe/tests/*`, including 1000-item stress coverage
+* Runnable crate examples in `crates/rustpipe/examples/*`
 * Workspace rustfmt configuration through `rustfmt.toml`
 * Coverage reporting through cargo-tarpaulin and Codecov
 
@@ -234,13 +236,40 @@ cargo bench -p rustpipe
 ```
 
 Benchmarks cover large transform pipelines, large middleware pipelines, short-circuit middleware,
-and string transform workloads.
+async transform pipelines, async middleware pipelines, and a full 1000-item pipeline stress
+workload.
+
+Benchmark targets:
+
+* `pipeline` - full middleware plus transform stress benchmark
+* `sync_transform` - synchronous transform throughput
+* `sync_middleware` - synchronous middleware throughput and short-circuit cost
+* `async_transform` - asynchronous transform throughput
+* `async_middleware` - asynchronous middleware throughput and short-circuit cost
+
+## Examples
+
+Runnable examples live in `crates/rustpipe/examples/*`.
+
+```bash
+cargo run -p rustpipe --example basic_transform
+cargo run -p rustpipe --example middleware_auth
+cargo run -p rustpipe --example axum_adapter
+cargo run -p rustpipe --example actix_web_adapter
+cargo run -p rustpipe --example data_validation
+cargo run -p rustpipe --example gpu_wgpu_pipeline
+cargo run -p rustpipe --features async --example async_jobs
+```
+
+The web and GPU examples use framework-shaped adapter types instead of forcing heavy framework or
+GPU dependencies into the crate. They show how to place rustpipe around Axum-like handlers,
+Actix-like service requests, validation flows, async jobs, and wgpu-style render command pipelines.
 
 ## CI/CD
 
 `.github/workflows/ci.yml` runs on commits pushed to `main` or `master`, including merged pull
-requests. It checks rustfmt, cargo check, clippy, tests, all-features tests, benches, release build,
-and coverage reporting on Windows, Linux, and macOS where applicable.
+requests. It checks rustfmt, cargo check, clippy, tests, all-features tests, benches, examples,
+release build, and coverage reporting on Windows, Linux, and macOS where applicable.
 
 `.github/workflows/publish.yml` runs only when a GitHub release is published. It verifies all
 platforms and publishes crates when `CARGO_REGISTRY_TOKEN` is configured.

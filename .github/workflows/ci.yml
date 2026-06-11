@@ -69,6 +69,9 @@ jobs:
       - name: Check benches
         run: cargo check -p rustpipe --benches --all-features
 
+      - name: Check examples
+        run: cargo check -p rustpipe --examples --all-features
+
       - name: Build release
         run: cargo build --workspace --release --all-features
 

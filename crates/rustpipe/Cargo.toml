@@ -40,8 +40,55 @@
 criterion = "0.8.2"
 
 [[bench]]
-name = "bench_large_pipeline"
+name = "pipeline"
 harness = false
+
+[[bench]]
+name = "sync_transform"
+harness = false
+
+[[bench]]
+name = "sync_middleware"
+harness = false
+
+[[bench]]
+name = "async_transform"
+harness = false
+required-features = ["async"]
+
+[[bench]]
+name = "async_middleware"
+harness = false
+required-features = ["async"]
+
+[[example]]
+name = "basic_transform"
+path = "examples/basic_transform.rs"
+
+[[example]]
+name = "middleware_auth"
+path = "examples/middleware_auth.rs"
+
+[[example]]
+name = "axum_adapter"
+path = "examples/axum_adapter.rs"
+
+[[example]]
+name = "actix_web_adapter"
+path = "examples/actix_web_adapter.rs"
+
+[[example]]
+name = "data_validation"
+path = "examples/data_validation.rs"
+
+[[example]]
+name = "gpu_wgpu_pipeline"
+path = "examples/gpu_wgpu_pipeline.rs"
+
+[[example]]
+name = "async_jobs"
+path = "examples/async_jobs.rs"
+required-features = ["async"]
 
 # Library configuration
 [lib]

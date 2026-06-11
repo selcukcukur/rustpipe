@@ -20,6 +20,18 @@ impl AsyncPipe<String> for AsyncPrefix {
     }
 }
 
+struct AsyncStop;
+
+impl AsyncPipe<String> for AsyncStop {
+    fn handle<'a>(
+        &'a self,
+        passable: String,
+        _next: AsyncNext<'a, String>,
+    ) -> Pin<Box<dyn std::future::Future<Output = PipeResult<String>> + Send + 'a>> {
+        Box::pin(async move { Ok(format!("{passable}:stopped")) })
+    }
+}
+
 struct AsyncUpper;
 
 impl AsyncTransformPipe<String> for AsyncUpper {
@@ -28,6 +40,23 @@ impl AsyncTransformPipe<String> for AsyncUpper {
         passable: String,
     ) -> Pin<Box<dyn std::future::Future<Output = TransformPipeResult<String>> + Send + 'a>> {
         Box::pin(async move { Ok(passable.to_uppercase()) })
+    }
+}
+
+struct AsyncBatchAdd(u64);
+
+impl AsyncTransformPipe<Vec<u64>> for AsyncBatchAdd {
+    fn handle<'a>(
+        &'a self,
+        mut passable: Vec<u64>,
+    ) -> Pin<Box<dyn std::future::Future<Output = TransformPipeResult<Vec<u64>>> + Send + 'a>> {
+        Box::pin(async move {
+            for value in &mut passable {
+                *value += self.0;
+            }
+
+            Ok(passable)
+        })
     }
 }
 
@@ -44,6 +73,18 @@ async fn async_middleware_pipeline_runs_next_chain() {
 }
 
 #[tokio::test]
+async fn async_middleware_can_short_circuit() {
+    let result = AsyncPipeline::new()
+        .send("core".to_string())
+        .through(vec![Arc::new(AsyncStop), Arc::new(AsyncPrefix("never:"))])
+        .then_return()
+        .await
+        .unwrap();
+
+    assert_eq!(result, "core:stopped");
+}
+
+#[tokio::test]
 async fn async_transform_pipeline_runs_transforms() {
     let result = AsyncTransformPipeline::new()
         .send("hello".to_string())
@@ -53,4 +94,19 @@ async fn async_transform_pipeline_runs_transforms() {
         .unwrap();
 
     assert_eq!(result, "HELLO");
+}
+
+#[tokio::test]
+async fn async_transform_pipeline_processes_batches() {
+    let result = AsyncTransformPipeline::new()
+        .send((0_u64..1_000).collect::<Vec<_>>())
+        .through(vec![
+            Arc::new(AsyncBatchAdd(10)),
+            Arc::new(AsyncBatchAdd(5)),
+        ])
+        .then(|values| values.into_iter().sum::<u64>())
+        .await
+        .unwrap();
+
+    assert_eq!(result, 514_500);
 }
