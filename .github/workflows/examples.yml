@@ -1,0 +1,63 @@
+# This workflow checks that all Rustpipe example targets compile.
+name: Rustpipe Examples
+
+# Run example checks for every push, every pull request, and manual dispatches.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# Grant read-only repository access because example checks do not publish artifacts.
+permissions:
+  contents: read
+
+# Cancel older example checks for the same branch.
+concurrency:
+  group: rustpipe-examples-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Compile example targets on all supported operating systems.
+  examples:
+    name: Examples (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+
+    # Keep every OS result visible even if one platform fails.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      # Checkout the repository so Cargo can find example targets.
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Install stable Rust for example compilation.
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      # Cache downloaded crates and git dependencies.
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-examples-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-examples-registry-
+
+      # Cache example build artifacts.
+      - name: Cache target
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-examples-target-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('**/*.rs') }}
+          restore-keys: |
+            ${{ runner.os }}-examples-target-${{ hashFiles('**/Cargo.lock') }}-
+            ${{ runner.os }}-examples-target-
+
+      # Compile every example target with all features enabled.
+      - name: Check examples
+        run: cargo check -p rustpipe --examples --all-features

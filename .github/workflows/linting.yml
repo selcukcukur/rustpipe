@@ -1,0 +1,81 @@
+# This workflow validates formatting, metadata checks, clippy, and release builds.
+name: Rustpipe Linting
+
+# Run linting for every push, every pull request, and manual dispatches.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# Grant read-only repository access because this workflow only verifies code.
+permissions:
+  contents: read
+
+# Cancel older linting runs for the same branch to save runner time.
+concurrency:
+  group: rustpipe-linting-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Run the linting matrix on all supported operating systems.
+  lint:
+    name: Lint (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+
+    # Keep every OS result visible even if one platform fails.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      # Checkout the repository so Cargo can inspect the workspace.
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Install stable Rust with the formatting and linting components.
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      # Cache downloaded crates and git dependencies.
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-linting-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-linting-registry-
+
+      # Cache build artifacts for faster repeated linting runs.
+      - name: Cache target
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-linting-target-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('**/*.rs') }}
+          restore-keys: |
+            ${{ runner.os }}-linting-target-${{ hashFiles('**/Cargo.lock') }}-
+            ${{ runner.os }}-linting-target-
+
+      # Enforce the workspace rustfmt.toml rules.
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      # Verify the default feature graph.
+      - name: Check
+        run: cargo check --workspace
+
+      # Verify every feature-gated API compiles together.
+      - name: Check all features
+        run: cargo check --workspace --all-features
+
+      # Treat all clippy warnings as errors.
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+      # Ensure release builds stay healthy on every supported platform.
+      - name: Build release
+        run: cargo build --workspace --release --all-features

@@ -1,0 +1,118 @@
+# This workflow runs Rustpipe's unit, integration, doctest, and coverage checks.
+name: Rustpipe Tests
+
+# Run tests for every push, every pull request, and manual dispatches.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# Grant read-only repository access because tests do not write repository content.
+permissions:
+  contents: read
+
+# Cancel older test runs for the same branch to keep feedback current.
+concurrency:
+  group: rustpipe-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Run the full test suite on every supported operating system.
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+
+    # Keep every OS result visible even if one platform fails.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      # Checkout the repository so Cargo can run tests.
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Install stable Rust for the test matrix.
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      # Cache downloaded crates and git dependencies.
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-tests-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-tests-registry-
+
+      # Cache build artifacts for faster repeated test runs.
+      - name: Cache target
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-tests-target-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('**/*.rs') }}
+          restore-keys: |
+            ${{ runner.os }}-tests-target-${{ hashFiles('**/Cargo.lock') }}-
+            ${{ runner.os }}-tests-target-
+
+      # Run tests with default features.
+      - name: Test
+        run: cargo test --workspace
+
+      # Run tests with all feature-gated APIs enabled.
+      - name: Test all features
+        run: cargo test --workspace --all-features
+
+  # Generate coverage on Linux because cargo-tarpaulin is Linux-focused.
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the repository so tarpaulin can inspect all crates.
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Install stable Rust for coverage generation.
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      # Cache downloaded crates and git dependencies.
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ubuntu-tests-coverage-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ubuntu-tests-coverage-registry-
+
+      # Cache coverage build artifacts.
+      - name: Cache target
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ubuntu-tests-coverage-target-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('**/*.rs') }}
+          restore-keys: |
+            ubuntu-tests-coverage-target-${{ hashFiles('**/Cargo.lock') }}-
+            ubuntu-tests-coverage-target-
+
+      # Install cargo-tarpaulin for coverage reporting.
+      - name: Install cargo-tarpaulin
+        run: cargo install cargo-tarpaulin --locked
+
+      # Generate cobertura.xml for Codecov.
+      - name: Generate coverage
+        run: cargo tarpaulin --workspace --all-features --out Xml
+
+      # Upload coverage without making Codecov availability block the workflow.
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: cobertura.xml
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}

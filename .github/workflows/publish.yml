@@ -1,34 +1,44 @@
-name: Publish
+# This workflow verifies and publishes Rustpipe crates when a GitHub release is published.
+name: Rustpipe Publish
 
+# Publish only when a release is explicitly published.
 on:
   release:
     types: [published]
 
+# Grant read-only repository access because Cargo uses the registry token for publishing.
 permissions:
   contents: read
 
+# Never cancel an in-progress publish job.
 concurrency:
-  group: publish-${{ github.workflow }}-${{ github.ref }}
+  group: rustpipe-publish-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
+  # Verify the release candidate on every supported operating system.
   verify:
     name: Verify (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+
+    # Keep every OS result visible even if one platform fails.
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
+      # Checkout the release source.
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Install stable Rust with formatting and linting components.
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
 
+      # Cache downloaded crates and git dependencies.
       - name: Cache Cargo registry
         uses: actions/cache@v4
         with:
@@ -39,6 +49,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-publish-registry-
 
+      # Cache release verification build artifacts.
       - name: Cache target
         uses: actions/cache@v4
         with:
@@ -48,44 +59,56 @@ jobs:
             ${{ runner.os }}-publish-target-${{ hashFiles('**/Cargo.lock') }}-
             ${{ runner.os }}-publish-target-
 
+      # Enforce rustfmt before publishing.
       - name: Format
         run: cargo fmt --all -- --check
 
+      # Treat clippy warnings as publish blockers.
       - name: Clippy
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
+      # Run all tests with every feature enabled.
       - name: Test all features
         run: cargo test --workspace --all-features
 
+      # Compile every benchmark target before publishing.
       - name: Check benches
         run: cargo check -p rustpipe --benches --all-features
 
+      # Compile every example target before publishing.
       - name: Check examples
         run: cargo check -p rustpipe --examples --all-features
 
+      # Build release artifacts as the final verification step.
       - name: Build release
         run: cargo build --workspace --release --all-features
 
+  # Publish crates after every platform has verified successfully.
   publish:
     name: Publish crates
     needs: verify
     runs-on: ubuntu-latest
 
     steps:
+      # Checkout the release source for Cargo publish.
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Install stable Rust for Cargo publish.
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
+      # Publish the proc-macro crate first because rustpipe depends on it optionally.
       - name: Publish macros
         run: cargo publish -p rustpipe-macros --token "$CARGO_REGISTRY_TOKEN"
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
+      # Wait for crates.io index propagation before publishing the main crate.
       - name: Wait for registry index
         run: sleep 60
 
+      # Publish the main rustpipe crate.
       - name: Publish rustpipe
         run: cargo publish -p rustpipe --token "$CARGO_REGISTRY_TOKEN"
         env:

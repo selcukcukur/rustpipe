@@ -1,5 +1,8 @@
-![CI](https://github.com/selcukcukur/rustpipe/actions/workflows/ci.yml/badge.svg)
-![Publish](https://github.com/selcukcukur/rustpipe/actions/workflows/publish.yml/badge.svg)
+![Rustpipe Linting](https://github.com/selcukcukur/rustpipe/actions/workflows/linting.yml/badge.svg)
+![Rustpipe Tests](https://github.com/selcukcukur/rustpipe/actions/workflows/tests.yml/badge.svg)
+![Rustpipe Benches](https://github.com/selcukcukur/rustpipe/actions/workflows/benches.yml/badge.svg)
+![Rustpipe Examples](https://github.com/selcukcukur/rustpipe/actions/workflows/examples.yml/badge.svg)
+![Rustpipe Publish](https://github.com/selcukcukur/rustpipe/actions/workflows/publish.yml/badge.svg)
 [![Coverage](https://codecov.io/gh/selcukcukur/rustpipe/branch/main/graph/badge.svg)](https://codecov.io/gh/selcukcukur/rustpipe)
 [![Crates.io](https://img.shields.io/crates/v/rustpipe.svg)](https://crates.io/crates/rustpipe)
 [![Docs.rs](https://docs.rs/rustpipe/badge.svg)](https://docs.rs/rustpipe)
@@ -267,9 +270,12 @@ Actix-like service requests, validation flows, async jobs, and wgpu-style render
 
 ## CI/CD
 
-`.github/workflows/ci.yml` runs on commits pushed to `main` or `master`, including merged pull
-requests. It checks rustfmt, cargo check, clippy, tests, all-features tests, benches, examples,
-release build, and coverage reporting on Windows, Linux, and macOS where applicable.
+The verification workflows run for every push, every pull request, and manual dispatches:
+
+* `.github/workflows/linting.yml` runs rustfmt, cargo check, clippy, and release builds.
+* `.github/workflows/tests.yml` runs tests, all-features tests, doctests, and coverage reporting.
+* `.github/workflows/benches.yml` compiles all benchmark targets.
+* `.github/workflows/examples.yml` compiles all example targets.
 
 `.github/workflows/publish.yml` runs only when a GitHub release is published. It verifies all
 platforms and publishes crates when `CARGO_REGISTRY_TOKEN` is configured.

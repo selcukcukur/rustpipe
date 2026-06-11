@@ -1,0 +1,63 @@
+# This workflow checks that all Rustpipe benchmark targets compile.
+name: Rustpipe Benches
+
+# Run benchmark checks for every push, every pull request, and manual dispatches.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# Grant read-only repository access because benchmark checks do not publish artifacts.
+permissions:
+  contents: read
+
+# Cancel older benchmark checks for the same branch.
+concurrency:
+  group: rustpipe-benches-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Compile benchmark targets on all supported operating systems.
+  benches:
+    name: Benches (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+
+    # Keep every OS result visible even if one platform fails.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      # Checkout the repository so Cargo can find benchmark targets.
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Install stable Rust for benchmark compilation.
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      # Cache downloaded crates and git dependencies.
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-benches-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-benches-registry-
+
+      # Cache benchmark build artifacts.
+      - name: Cache target
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-benches-target-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('**/*.rs') }}
+          restore-keys: |
+            ${{ runner.os }}-benches-target-${{ hashFiles('**/Cargo.lock') }}-
+            ${{ runner.os }}-benches-target-
+
+      # Compile every benchmark target with all features enabled.
+      - name: Check benches
+        run: cargo check -p rustpipe --benches --all-features
