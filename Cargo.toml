@@ -1,33 +1,49 @@
 # Workspace configurations
 [workspace]
-# List of member crates included in this workspace
-members = [
-    "crates/rustpipe",
-    "crates/rustpipe-macros"
-]
-# Use the latest cargo resolver for dependency resolution
-resolver = "3"
+    # List of member crates included in this workspace
+    members = ["crates/rustpipe", "crates/rustpipe-macros"]
+    # Use the latest cargo resolver for dependency resolution
+    resolver = "3"
+
+[workspace.package]
+    # Rust edition (modern syntax and features)
+    edition = "2024"
+    # Keywords to improve discoverability on crates.io
+    keywords = ["pipeline", "pipe", "rust", "handle", "transform"]
+    # Author information (name and email)
+    authors = ["Selçuk Çukur <hello@selcukcukur.me>"]
+    # License identifier (SPDX format, e.g. MIT, Apache-2.0)
+    license = "MIT"
+    # Current crate version (Semantic Versioning compliant)
+    version = "0.1.0"
+
+    # Crates.io category (used for classification and discoverability)
+    categories = ["rust-patterns", "data-structures", "asynchronous", "value-formatting"]
+    # Repository URL (source code and issue tracker)
+    repository = "https://github.com/selcukcukur/rustpipe"
+
+# Dependency configurations
+[dependencies]
+    # serde - core framework for serialization and deserialization
+    serde = { version = "1", features = ["derive"] }
+    # serde_json - JSON backend for Serde, used for structured data and logging
+    serde_json = "1"
+    # tokio - Asynchronous runtime for Rust (networking, tasks, timers, etc.)
+    tokio = { version ="1", features = ["full"], optional = true }
+    # thiserror - Lightweight error handling library for defining custom error types
+    thiserror = "2"
 
 # Debug configurations
 [profile.dev]
-# Enable debug symbols for better stack traces
-debug = true
-# Faster compilation by using multiple codegen units
-codegen-units = 256
-# No link-time optimization in debug mode (faster builds)
-lto = "off"
-# Keep panic messages for debugging
-panic = "unwind"
-# Lower optimization level for quicker builds
-opt-level = 0
+debug = true            # Enable debug symbols for better stack traces
+codegen-units = 256     # Faster compilation by using multiple codegen units
+lto = "off"             # No link-time optimization in debug mode (faster builds)
+panic = "unwind"        # Keep panic messages for debugging
+opt-level = 0           # Lower optimization level for quicker builds
 
 # Release configurations
 [profile.release]
-# Useful link-time optimization for maximum performance
-lto = "fat"
-# Single codegen unit for better optimization
-codegen-units = 1
-# Abort immediately on panic (smaller binary, faster fail)
-panic = "abort"
-# Highest optimization level for runtime performance
-opt-level = 3
+lto = "fat"             # Useful link-time optimization for maximum performance
+codegen-units = 1       # Single codegen unit for better optimization
+panic = "abort"         # Abort immediately on panic (smaller binary, faster fail)
+opt-level = 3           # Highest optimization level for runtime performance
