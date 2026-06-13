@@ -26,7 +26,7 @@
     # serde_json - JSON backend for Serde, used for structured data and logging
     serde_json.workspace = true
     # tokio - Asynchronous runtime for Rust (networking, tasks, timers, etc.)
-    tokio.workspace = true
+    tokio = { version ="1", features = ["full"], optional = true }
     # thiserror - Lightweight error handling library for defining custom error types
     thiserror.workspace = true
 
