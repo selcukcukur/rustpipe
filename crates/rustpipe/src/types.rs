@@ -17,15 +17,15 @@ use std::pin::Pin;
 /// - `Err(PipelineError)` - The pipeline failed with a centralized error.
 pub type PipelineResult<TPassable> = Result<TPassable, PipelineError>;
 
-/// Alias for middleware pipe results.
+/// Alias for pipe results.
 ///
 /// **Generics**
-/// - `TPassable` - The successful output type produced by a middleware pipe.
-/// - `TError` - The concrete error type returned by the middleware pipe.
+/// - `TPassable` - The successful output type produced by a pipe.
+/// - `TError` - The concrete error type returned by the pipe.
 ///
 /// **Returns**
 /// - `Ok(TPassable)` - The pipe completed successfully.
-/// - `Err(TError)` - The pipe failed and stopped the middleware chain.
+/// - `Err(TError)` - The pipe failed and stopped the chain.
 pub type PipeResult<TPassable, TError = PipelineError> = Result<TPassable, TError>;
 
 /// Alias for transform pipe results.
@@ -36,16 +36,16 @@ pub type PipeResult<TPassable, TError = PipelineError> = Result<TPassable, TErro
 ///
 /// **Returns**
 /// - `Ok(TPassable)` - The transform completed successfully.
-/// - `Err(TError)` - The transform failed and stopped the transform pipeline.
+/// - `Err(TError)` - The transform failed and stopped the pipeline.
 pub type TransformPipeResult<TPassable, TError = PipelineError> = Result<TPassable, TError>;
 
-/// A thread-safe, shareable middleware unit.
+/// A thread-safe, shareable pipe unit.
 ///
 /// **Generics**
-/// - `TPassable` - The type of the value flowing through the middleware pipeline.
+/// - `TPassable` - The type of the value flowing through the pipeline.
 /// - `TError` - The error type returned when the pipe fails.
 pub type PipeType<TPassable, TError = PipelineError> =
-    Arc<dyn Pipe<TPassable, TError> + Send + Sync>;
+Arc<dyn Pipe<TPassable, TError> + Send + Sync>;
 
 /// A thread-safe, shareable transform unit.
 ///
@@ -53,7 +53,7 @@ pub type PipeType<TPassable, TError = PipelineError> =
 /// - `TPassable` - The type of the value flowing through the transform pipeline.
 /// - `TError` - The error type returned when the transform fails.
 pub type TransformPipeType<TPassable, TError = PipelineError> =
-    Arc<dyn TransformPipe<TPassable, TError> + Send + Sync>;
+Arc<dyn TransformPipe<TPassable, TError> + Send + Sync>;
 
 /// Boxed finalizer callback used by pipeline implementations.
 pub type Finalizer<TPassable> = Box<dyn Fn(&PipelineResult<TPassable>) + Send + Sync>;

@@ -336,4 +336,8 @@ vulnerabilities.
 
 ## License
 
-**rustpipe** is open source under the **[MIT License](license.md)**.
+**Rustpipe** project is published as open source. The **[MIT License](license.md)** is used, which
+is one of the well-known open source coding licenses. You can get detailed information about the license terms
+by visiting the link below.
+
+- **[MIT License](license.md)**

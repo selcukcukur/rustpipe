@@ -11,3 +11,17 @@
 ![Rustfmt](https://img.shields.io/badge/code%20style-rustfmt-brightgreen.svg)
 ![Clippy](https://img.shields.io/badge/lints-clippy%20clean-brightgreen.svg)
 ![Tests](https://img.shields.io/badge/tests-sync%20%2B%20async%20%2B%20macros-brightgreen.svg)
+
+## Security
+
+If you think there is a security vulnerability in **Rustpipe**, please email
+**Selçuk Çukur** at **<hello@selcukcukur.me>**. Please do not publicly post
+security vulnerabilities.
+
+## License
+
+**Rustpipe** project is published as open source. The **[MIT License](license.md)**
+is used, which is one of the well-known open source coding licenses. You can get
+detailed information about the license terms by visiting the link below.
+
+- **[MIT License](license.md)**
